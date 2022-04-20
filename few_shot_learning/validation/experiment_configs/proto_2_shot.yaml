@@ -1,0 +1,7 @@
+PROTOTYPICAL_NETWORK:
+  IMAGE_SIZE: 512
+  N_WAY: 10 # Number of classes
+  N_SHOT: 2 # Number of images per class
+  N_QUERY: 2 # Number of images per class in the query set
+  N_EVALUATION_TASKS: 50
+  MANUAL_SEED: 0

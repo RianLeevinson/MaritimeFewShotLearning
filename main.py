@@ -1,0 +1,3 @@
+from few_shot_learning.validation import prototypical_model
+
+prototypical_model.PrototypicalNetworkModel

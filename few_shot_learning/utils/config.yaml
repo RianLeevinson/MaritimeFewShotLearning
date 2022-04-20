@@ -1,0 +1,4 @@
+PATHS:
+
+TEST_CONFIG:
+  n_shot: 10
