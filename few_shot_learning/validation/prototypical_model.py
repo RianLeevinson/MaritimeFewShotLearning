@@ -95,7 +95,7 @@ class PrototypicalNetworkModel(nn.Module):
 
 def select_model(mode):
     if mode == 1:
-        filename_pth = 'model_resnet18_fsl_4.pth'
+        filename_pth = 'models/model_resnet18_fsl_2_class.pth'
         convolutional_network = resnet18(pretrained=False)
         convolutional_network.fc = nn.Flatten()
         convolutional_network.load_state_dict(torch.load(filename_pth))

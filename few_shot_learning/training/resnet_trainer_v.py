@@ -20,7 +20,7 @@ print(num_classes)
 model_name = "resnet"
 
 
-batch_size = 128
+batch_size = 16
 
 
 # Number of epochs to train for
@@ -89,7 +89,6 @@ train_dataloader = DataLoader(complete_dataset, batch_size=batch_size,
                      #       shuffle=True, num_workers=workers)
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-print(torch.cuda.is_available())
 
 
 #opt = torch.optim.Adam(model.parameters(), lr=1e-5)
@@ -136,7 +135,7 @@ def train(model, train_dataloader, criterion, optimizer, epochs = 5):
         #plt.plot(train_loss,label="Training Loss")
         #plt.show() 
         #tot_acc = 100 * correct_acc / len(train_dataloader)
-        filename_pth = 'models/model_resnet18_fsl_2_class.pth'
+        filename_pth = 'models/model_resnet18_fsl_2_class_2.pth'
         torch.save(model.state_dict(), filename_pth)
         #print(tot_acc)
 def run():
