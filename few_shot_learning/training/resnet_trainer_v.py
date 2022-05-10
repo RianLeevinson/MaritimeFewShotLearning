@@ -20,7 +20,7 @@ print(num_classes)
 model_name = "resnet"
 
 
-batch_size = 16
+batch_size = 8
 
 
 # Number of epochs to train for
@@ -55,7 +55,7 @@ class MaritimeDataset(Dataset):
         #print(img.size)
         return images, torch.tensor(target)
 
-image_size = 128
+image_size = 224
 
 data_dir = "data/raw/2_class_resnet/"
 
@@ -105,7 +105,6 @@ convolutional_network.fc = nn.Flatten()
 
 for param in convolutional_network.parameters():
     param.requires_grad = True
-device = torch.device("cpu")
 def train(model, train_dataloader, criterion, optimizer, epochs = 5):
     train_loss =[]
     for e in range(epochs):
