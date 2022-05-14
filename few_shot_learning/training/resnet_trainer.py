@@ -54,7 +54,7 @@ def prog_run():
 
     # Directory of the data
     data_dir = "data/raw/2_class_resnet/"
-
+    plot_dir = "few_shot_learning/visualization/"
     #dataset mean and standard deviation
 
     data_mean = [0.4609, 0.4467, 0.4413]
@@ -134,7 +134,7 @@ def prog_run():
         "epochs": 5,
         "batch_size": 32
         }
-    epochs = 5
+    epochs = 2
     epoch_number = 0
     
     #optimizer = optim.Adam(convolutional_network.parameters(), lr=0.001)
@@ -204,9 +204,9 @@ def prog_run():
         plt.ylabel(Metric)
         plt.legend()
     perf_plot('Loss', total_train_loss, total_val_loss)
-    plt.savefig('few_shot_learning/visualization/resnet_train_val_loss.png')
+    plt.savefig(plot_dir+'resnet_train_val_loss.png')
     perf_plot('Accuracy', total_train_acc, total_val_acc)
-    plt.savefig('resnet_train_val_accuracy.png')
+    plt.savefig(plot_dir+'resnet_train_val_accuracy.png')
     #wandb.watch(convolutional_network)
 
 if __name__ == '__main__':

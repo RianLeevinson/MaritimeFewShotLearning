@@ -8,107 +8,100 @@ from PIL import Image
 from torch import optim
 from tqdm import tqdm
 import torch.optim.lr_scheduler
-import os 
 import matplotlib.pyplot as plt
+#from torch.utils.tensorboard import SummaryWriter
+from datetime import datetime
+from omegaconf import OmegaConf
+#from maritime_dataset import MaritimeDataset
 
 
-os.environ["CUDA_VISIBLE_DEVICES"]=""
+import wandb
 
-object_classes = ['buoys', 'ships']
-num_classes = len(object_classes)
-print(num_classes)
-model_name = "resnet"
-
-
-batch_size = 8
-
-
-# Number of epochs to train for
-num_epochs = 10
-
-# Flag for feature extracting. When False, we finetune the whole model,
-#   when True we only update the reshaped layer params
-feature_extract = True
 
 class MaritimeDataset(Dataset):
 
     def __init__(self, root_dir="", transform=transforms):
         self.dataset = datasets.ImageFolder(root=root_dir)
         self.transform = transform
-        #self.paths, self.labels = list(zip(*self.dataset.samples))
         self.paths, self.labels = list(map(list, zip(*self.dataset.samples)))
         self.classes = self.dataset.class_to_idx
 
     def __len__(self):
         return len(self.labels)
 
-
     def __getitem__(self, index):
         
-        #path, target = self.paths[index], self.labels[index]
         target = self.labels[index]
         img = Image.open(self.paths[index]).convert('RGB')
 
         if self.transform:
             images = self.transform(img)
-#             targets = self.transform(target)
-        #print(img.size)
         return images, torch.tensor(target)
 
-image_size = 224
+def prog_run():
+    USE_WANDB = False
 
-data_dir = "data/raw/2_class_resnet/"
+    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+    #os.environ["CUDA_VISIBLE_DEVICES"]=""
 
-data_mean = [0.4609, 0.4467, 0.4413]
-data_std = [0.1314, 0.1239, 0.1198]
+    object_classes = ['buoys', 'ships']
+    num_classes = len(object_classes)
+    print(num_classes)
 
-complete_dataset = MaritimeDataset(root_dir = data_dir,
-                                    transform = transforms.Compose([
-                                        transforms.Resize(image_size),
-                                        transforms.CenterCrop(image_size),
-                                        transforms.RandomHorizontalFlip(),
-                                        transforms.ToTensor(),
-                                        transforms.Normalize(data_mean, data_std),
-                                        ])
-                                    )
-# print(next(iter(complete_dataset)))
+    batch_size = 64
+    #Define image size (Resnet image size is 224 x 224 x 3)
+    image_size = 224
 
-#Splittin the data into train and test sets
+    # Directory of the data
+    data_dir = "data/raw/2_class_resnet/"
+    plot_dir = "few_shot_learning/visualization/"
+    model_store_path = 'models/model_partial_resnet18_fsl_2_class_cuda_v2.pth'
+    #dataset mean and standard deviation
 
-train_length = int(0.7* len(complete_dataset))
-
-test_length = len(complete_dataset) - train_length
-
-#train_dataset, test_dataset = torch.utils.data.random_split(complete_dataset, (train_length, test_length))
+    data_mean = [0.4609, 0.4467, 0.4413]
+    data_std = [0.1314, 0.1239, 0.1198]
 
 
-workers = 8
-train_dataloader = DataLoader(complete_dataset, batch_size=batch_size,
-                            shuffle=True, num_workers=workers)
-#test_dataloader =  DataLoader(test_dataset, batch_size=batch_size,
-                     #       shuffle=True, num_workers=workers)
+    complete_dataset = MaritimeDataset(root_dir = data_dir,
+                                        transform = transforms.Compose([
+                                            transforms.Resize(image_size),
+                                            transforms.CenterCrop(image_size),
+                                            transforms.RandomHorizontalFlip(),
+                                            transforms.ToTensor(),
+                                            transforms.Normalize(data_mean, data_std),
+                                            ])
+                                        )
 
-device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+    #Splitting the data into train and test sets with random_split
+    train_length = int(0.8* len(complete_dataset))
+    test_length = len(complete_dataset) - train_length
 
+    train_dataset, test_dataset = torch.utils.data.random_split(complete_dataset, (train_length, test_length))
 
-#opt = torch.optim.Adam(model.parameters(), lr=1e-5)
+    workers = 8
+    train_dataloader = DataLoader(train_dataset, batch_size=batch_size,
+                                shuffle=True, num_workers=workers)
+    validation_dataloader =  DataLoader(test_dataset, batch_size=batch_size, shuffle=True, num_workers=workers)
 
-loss = torch.nn.CrossEntropyLoss()
+    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
-criterion = nn.NLLLoss()
+    convolutional_network = models.resnet18(pretrained=True)
+    convolutional_network.fc = nn.Flatten()
 
+    convolutional_network.to(device)
 
-convolutional_network = models.resnet18(pretrained=False)
-convolutional_network.fc = nn.Flatten()
-
-
-
-for param in convolutional_network.parameters():
-    param.requires_grad = True
-def train(model, train_dataloader, criterion, optimizer, epochs = 5):
-    train_loss =[]
-    for e in range(epochs):
-        #correct_acc = 0
+    #for param in convolutional_network.parameters():
+    #    param.requires_grad = True
+    for name, child in convolutional_network.named_children():
+        if name in ['layer3', 'layer4']:
+            print(name + ' is unfrozen')
+            for param in child.parameters():
+                param.requires_grad = True
+        else:
+            print(name + ' is frozen')
+            for param in child.parameters():
+                param.requires_grad = False
+    def train(model, train_dataloader, criterion, optimizer, e = 5):
         running_loss =0
         with tqdm(train_dataloader, unit="batch") as tepoch:
             for images, labels in tepoch:
@@ -119,39 +112,121 @@ def train(model, train_dataloader, criterion, optimizer, epochs = 5):
                 img = model(inputs)
                 
                 loss = criterion(img, labels)
-                running_loss+=loss
+                running_loss+=loss.item()
                 loss.backward()
                 optimizer.step()
+                scheduler.step()
                 predictions = img.argmax(dim=1, keepdim=True).squeeze()
-                #correct_acc += (predictions == labels).float().sum()
-                cor_batch = (predictions == labels).float().sum()
-                cor_batch_2 = cor_batch/batch_size
-                tepoch.set_postfix(loss=loss.item(), accuracy=float("{:.4f}".format(100. * cor_batch_2)))
+                correct_preds = (predictions == labels).float().sum()
+                correct_batch = correct_preds/batch_size
+                acc =float("{:.4f}".format(100. * correct_batch))
+                tepoch.set_postfix(loss=loss.item(), accuracy=float("{:.4f}".format(100. * correct_batch)))
             #print("Epoch : {}/{}..".format(e+1,epochs),
             #"Training Loss: {:.6f}".format(running_loss/len(train_dataloader))) 
-            
-            train_loss.append(running_loss)
+        training_loss = running_loss/len(train_dataloader)
+            #train_loss.append(running_loss)
         #plt.plot(train_loss,label="Training Loss")
         #plt.show() 
         #tot_acc = 100 * correct_acc / len(train_dataloader)
-        filename_pth = 'models/model_resnet18_fsl_2_class_2.pth'
-        torch.save(model.state_dict(), filename_pth)
+        #filename_pth = 'models/model_resnet18_fsl_2_class_2.pth'
+        #torch.save(model.state_dict(), filename_pth)
         #print(tot_acc)
-def run():
-    torch.multiprocessing.freeze_support()
+        return training_loss, acc
+    # def run():
+    #     torch.multiprocessing.freeze_support()
 
-# epochs = 5
-# convolutional_network.train()
-# optimizer = optim.Adam(convolutional_network.parameters(), lr=0.001)
-# criterion = nn.CrossEntropyLoss()    
+    if USE_WANDB:
+        wandb.init(project="MaritimeObjectClassification", entity="rian_leevinson")
+        configs = OmegaConf.load('few_shot_learning/utils/config.yaml')
 
+        wandb.config = {
+        "learning_rate": 0.001,
+        "epochs": 5,
+        "batch_size": 32
+        }
+    epochs = 10
+    epoch_number = 0
+    
+    #optimizer = optim.Adam(convolutional_network.parameters(), lr=0.001)
+    optimizer = torch.optim.SGD(
+        filter(
+            lambda p: p.requires_grad, convolutional_network.parameters()
+        ), lr=0.01, momentum=0.9
+    )
+    scheduler = torch.optim.lr_scheduler.OneCycleLR(
+        optimizer, max_lr=0.01, 
+        steps_per_epoch=len(train_dataloader), epochs=epochs
+    )
+    criterion = nn.CrossEntropyLoss()    
+    # train(convolutional_network,train_dataloader,criterion, optimizer, epochs) 
+    #writer = SummaryWriter('runs/fsl_resnet_{}'.format(timestamp))
+    best_vloss = 1_000_000.
+
+    total_train_acc = []
+    total_val_acc = []
+    total_train_loss = []
+    total_val_loss = []
+
+    for e in range(epochs):
+        convolutional_network.train(True)
+        avg_loss, avg_acc  = train(convolutional_network,train_dataloader,criterion, optimizer, e) 
+        
+        convolutional_network.eval()
+        with torch.no_grad():
+            running_vloss = 0.0
+            with tqdm(validation_dataloader, unit="batch") as tepoch:
+                for images, labels in tepoch:
+                    images, labels = images.to(device), labels.to(device)
+                    voutputs = convolutional_network(images)
+                    vloss = criterion(voutputs, labels)
+                    running_vloss += vloss.item()
+                    predictions = voutputs.argmax(dim=1, keepdim=True).squeeze()
+                    correct_preds = (predictions == labels).float().sum()
+                    correct_batch = correct_preds/batch_size
+
+        avg_vloss = running_vloss / len(validation_dataloader)
+        avg_vacc = float("{:.4f}".format(100. * correct_batch))
+        print('LOSS train {} valid {}'.format(avg_loss, avg_vloss))
+        print('ACCURACY train {} valid {}'.format(avg_acc, avg_vacc))
+
+        
+        if USE_WANDB:
+            wandb.log({"training accuracy": avg_acc})
+            wandb.log({"validation accuracy": avg_vacc})
+            wandb.log({"training loss": avg_loss})
+            wandb.log({"validation loss": avg_vloss})
+
+        # Log the running loss averaged per batch
+        # for both training and validation
+            # writer.add_scalars('Training vs. Validation Loss',
+            #                 { 'Training' : avg_loss, 'Validation' : avg_vloss },
+            #             epoch_number + 1)
+            # writer.flush()
+        if avg_vloss < best_vloss:
+            best_vloss = avg_vloss
+            model_path = model_store_path
+            torch.save(convolutional_network.state_dict(), model_path)
+        epoch_number += 1
+
+        total_train_acc.append(avg_acc)
+        total_val_acc.append(avg_vacc)
+        total_train_loss.append(avg_loss)
+        total_val_loss.append(avg_vloss)
+    
+    def perf_plot(Metric, train, val):
+
+        plt.figure(figsize=(10,5))
+        plt.title(f"Training and Validation {Metric}")
+        plt.plot(train,label="train")
+        plt.plot(val,label="val")
+        plt.xlabel("iterations")
+        plt.ylabel(Metric)
+        plt.legend()
+    perf_plot('Loss', total_train_loss, total_val_loss)
+    plt.savefig(plot_dir+'resnet_train_val_loss.png')
+    perf_plot('Accuracy', total_train_acc, total_val_acc)
+    plt.savefig(plot_dir+'resnet_train_val_accuracy.png')
+    #wandb.watch(convolutional_network)
 
 if __name__ == '__main__':
-    run()
-    epochs = 5
-    convolutional_network.train()
-    optimizer = optim.Adam(convolutional_network.parameters(), lr=0.001)
-    criterion = nn.CrossEntropyLoss()    
-    train(convolutional_network,train_dataloader,criterion, optimizer, epochs) 
-
-    
+    prog_run()
