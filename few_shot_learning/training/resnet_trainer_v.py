@@ -153,3 +153,5 @@ if __name__ == '__main__':
     optimizer = optim.Adam(convolutional_network.parameters(), lr=0.001)
     criterion = nn.CrossEntropyLoss()    
     train(convolutional_network,train_dataloader,criterion, optimizer, epochs) 
+
+    
