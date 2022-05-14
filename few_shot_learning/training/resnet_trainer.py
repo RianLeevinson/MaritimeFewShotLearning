@@ -105,6 +105,7 @@ def prog_run():
                 running_loss+=loss.item()
                 loss.backward()
                 optimizer.step()
+                scheduler.step()
                 predictions = img.argmax(dim=1, keepdim=True).squeeze()
                 correct_preds = (predictions == labels).float().sum()
                 correct_batch = correct_preds/batch_size
@@ -133,14 +134,22 @@ def prog_run():
         "epochs": 5,
         "batch_size": 32
         }
-    epochs = 10
+    epochs = 5
     epoch_number = 0
     
-    optimizer = optim.Adam(convolutional_network.parameters(), lr=0.001)
+    #optimizer = optim.Adam(convolutional_network.parameters(), lr=0.001)
+    optimizer = torch.optim.SGD(convolutional_network.parameters(), lr=0.1, momentum=0.9)
+    scheduler = torch.optim.lr_scheduler.OneCycleLR(optimizer, max_lr=0.01, steps_per_epoch=len(train_dataloader), epochs=epochs)
     criterion = nn.CrossEntropyLoss()    
     # train(convolutional_network,train_dataloader,criterion, optimizer, epochs) 
     #writer = SummaryWriter('runs/fsl_resnet_{}'.format(timestamp))
     best_vloss = 1_000_000.
+
+    total_train_acc = []
+    total_val_acc = []
+    total_train_loss = []
+    total_val_loss = []
+
     for e in range(epochs):
         convolutional_network.train(True)
         avg_loss, avg_acc  = train(convolutional_network,train_dataloader,criterion, optimizer, e) 
@@ -148,25 +157,25 @@ def prog_run():
         convolutional_network.eval()
         with torch.no_grad():
             running_vloss = 0.0
-            for i, vdata in enumerate(validation_dataloader):
-                vinputs, vlabels = vdata
-                vinputs, vlabels = vinputs.to(device), vlabels.to(device)
-                voutputs = convolutional_network(vinputs)
-                vloss = criterion(voutputs, vlabels)
-                running_vloss += vloss.item()
-                predictions = voutputs.argmax(dim=1, keepdim=True).squeeze()
-                correct_preds = (predictions == vlabels).float().sum()
-                correct_batch = correct_preds/batch_size
+            with tqdm(validation_dataloader, unit="batch") as tepoch:
+                for images, labels in tepoch:
+                    images, labels = images.to(device), labels.to(device)
+                    voutputs = convolutional_network(images)
+                    vloss = criterion(voutputs, labels)
+                    running_vloss += vloss.item()
+                    predictions = voutputs.argmax(dim=1, keepdim=True).squeeze()
+                    correct_preds = (predictions == labels).float().sum()
+                    correct_batch = correct_preds/batch_size
 
-            avg_vloss = running_vloss / (i + 1)
-            acf_vacc = float("{:.4f}".format(100. * correct_batch))
-            print('LOSS train {} valid {}'.format(avg_loss, avg_vloss))
-            print('ACCURACY train {} valid {}'.format(avg_acc, acf_vacc))
-            if USE_WANDB:
-                wandb.log({"training accuracy": avg_acc})
-                wandb.log({"validation accuracy": acf_vacc})
-                wandb.log({"training loss": avg_loss})
-                wandb.log({"validation loss": avg_vloss})
+        avg_vloss = running_vloss / len(validation_dataloader)
+        avg_vacc = float("{:.4f}".format(100. * correct_batch))
+        print('LOSS train {} valid {}'.format(avg_loss, avg_vloss))
+        print('ACCURACY train {} valid {}'.format(avg_acc, avg_vacc))
+        if USE_WANDB:
+            wandb.log({"training accuracy": avg_acc})
+            wandb.log({"validation accuracy": avg_vacc})
+            wandb.log({"training loss": avg_loss})
+            wandb.log({"validation loss": avg_vloss})
 
         # Log the running loss averaged per batch
         # for both training and validation
@@ -174,12 +183,30 @@ def prog_run():
             #                 { 'Training' : avg_loss, 'Validation' : avg_vloss },
             #             epoch_number + 1)
             # writer.flush()
-            if avg_vloss < best_vloss:
-                best_vloss = avg_vloss
-                model_path = 'models/model_resnet18_fsl_2_class_cuda_1.pth'
-                torch.save(convolutional_network.state_dict(), model_path)
-            epoch_number += 1
+        if avg_vloss < best_vloss:
+            best_vloss = avg_vloss
+            model_path = 'models/model_resnet18_fsl_2_class_cuda_v2.pth'
+            torch.save(convolutional_network.state_dict(), model_path)
+        epoch_number += 1
 
+        total_train_acc.append(avg_acc)
+        total_val_acc.append(avg_vacc)
+        total_train_loss.append(avg_loss)
+        total_val_loss.append(avg_vloss)
+    
+    def perf_plot(Metric, train, val):
+
+        plt.figure(figsize=(10,5))
+        plt.title(f"Training and Validation {Metric}")
+        plt.plot(train,label="train")
+        plt.plot(val,label="val")
+        plt.xlabel("iterations")
+        plt.ylabel(Metric)
+        plt.legend()
+    perf_plot('Loss', total_train_loss, total_val_loss)
+    plt.savefig('few_shot_learning/visualization/resnet_train_val_loss.png')
+    perf_plot('Accuracy', total_train_acc, total_val_acc)
+    plt.savefig('resnet_train_val_accuracy.png')
     #wandb.watch(convolutional_network)
 
 if __name__ == '__main__':
