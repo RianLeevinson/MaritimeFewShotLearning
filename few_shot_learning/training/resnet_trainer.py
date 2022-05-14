@@ -20,50 +20,39 @@ os.environ["CUDA_VISIBLE_DEVICES"]=""
 object_classes = ['buoys', 'ships']
 num_classes = len(object_classes)
 print(num_classes)
-model_name = "resnet"
-
 
 batch_size = 32
+#Define image size
+image_size = 8
 
+# Directory of the data
+data_dir = "data/raw/2_class_resnet/"
 
-# Number of epochs to train for
-num_epochs = 10
+#dataset mean and standard deviation
 
-# Flag for feature extracting. When False, we finetune the whole model,
-#   when True we only update the reshaped layer params
-feature_extract = True
+data_mean = [0.4609, 0.4467, 0.4413]
+data_std = [0.1314, 0.1239, 0.1198]
 
 class MaritimeDataset(Dataset):
 
     def __init__(self, root_dir="", transform=transforms):
         self.dataset = datasets.ImageFolder(root=root_dir)
         self.transform = transform
-        #self.paths, self.labels = list(zip(*self.dataset.samples))
         self.paths, self.labels = list(map(list, zip(*self.dataset.samples)))
         self.classes = self.dataset.class_to_idx
 
     def __len__(self):
         return len(self.labels)
 
-
     def __getitem__(self, index):
         
-        #path, target = self.paths[index], self.labels[index]
         target = self.labels[index]
         img = Image.open(self.paths[index]).convert('RGB')
 
         if self.transform:
             images = self.transform(img)
-#             targets = self.transform(target)
-        #print(img.size)
         return images, torch.tensor(target)
 
-image_size = 8
-
-data_dir = "data/raw/2_class_resnet/"
-
-data_mean = [0.4609, 0.4467, 0.4413]
-data_std = [0.1314, 0.1239, 0.1198]
 
 complete_dataset = MaritimeDataset(root_dir = data_dir,
                                     transform = transforms.Compose([
@@ -74,16 +63,12 @@ complete_dataset = MaritimeDataset(root_dir = data_dir,
                                         transforms.Normalize(data_mean, data_std),
                                         ])
                                     )
-# print(next(iter(complete_dataset)))
 
-#Splittin the data into train and test sets
-
+#Splitting the data into train and test sets with random_split
 train_length = int(0.7* len(complete_dataset))
-
 test_length = len(complete_dataset) - train_length
 
 train_dataset, test_dataset = torch.utils.data.random_split(complete_dataset, (train_length, test_length))
-
 
 workers = 8
 train_dataloader = DataLoader(train_dataset, batch_size=batch_size,
@@ -91,15 +76,6 @@ train_dataloader = DataLoader(train_dataset, batch_size=batch_size,
 validation_dataloader =  DataLoader(test_dataset, batch_size=batch_size, shuffle=True, num_workers=workers)
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-
-
-#opt = torch.optim.Adam(model.parameters(), lr=1e-5)
-
-
-loss = torch.nn.CrossEntropyLoss()
-
-criterion = nn.NLLLoss()
-
 
 convolutional_network = models.resnet18(pretrained=False)
 convolutional_network.fc = nn.Flatten()
@@ -142,12 +118,6 @@ def train(model, train_dataloader, criterion, optimizer, e = 5):
 def run():
     torch.multiprocessing.freeze_support()
 
-# epochs = 5
-# convolutional_network.train()
-# optimizer = optim.Adam(convolutional_network.parameters(), lr=0.001)
-# criterion = nn.CrossEntropyLoss()    
-
-
 if __name__ == '__main__':
     run()
     epochs = 5
@@ -171,13 +141,14 @@ if __name__ == '__main__':
             vloss = criterion(voutputs, vlabels)
             running_vloss += vloss
             predictions = voutputs.argmax(dim=1, keepdim=True).squeeze()
-            #correct_acc += (predictions == labels).float().sum()
             correct_preds = (predictions == vlabels).float().sum()
             correct_batch = correct_preds/batch_size
 
         avg_vloss = running_vloss / (i + 1)
+        acf_vacc = float("{:.4f}".format(100. * correct_batch))
         print('LOSS train {} valid {}'.format(avg_loss, avg_vloss))
-        print('ACCURACY train {} valid {}'.format(avg_acc, correct_batch))
+        print('ACCURACY train {} valid {}'.format(avg_acc, acf_vacc))
+
     # Log the running loss averaged per batch
     # for both training and validation
         # writer.add_scalars('Training vs. Validation Loss',
