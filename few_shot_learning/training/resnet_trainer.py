@@ -12,6 +12,10 @@ import os
 import matplotlib.pyplot as plt
 #from torch.utils.tensorboard import SummaryWriter
 from datetime import datetime
+from omegaconf import OmegaConf
+#from maritime_dataset import MaritimeDataset
+
+configs = OmegaConf.load('few_shot_learning/utils/config.yaml')
 
 
 timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
@@ -26,7 +30,7 @@ batch_size = 32
 image_size = 8
 
 # Directory of the data
-data_dir = "data/raw/2_class_resnet/"
+data_dir = "data/raw/updated_ds/"
 
 #dataset mean and standard deviation
 
@@ -98,7 +102,6 @@ def train(model, train_dataloader, criterion, optimizer, e = 5):
             loss.backward()
             optimizer.step()
             predictions = img.argmax(dim=1, keepdim=True).squeeze()
-            #correct_acc += (predictions == labels).float().sum()
             correct_preds = (predictions == labels).float().sum()
             correct_batch = correct_preds/batch_size
             acc =float("{:.4f}".format(100. * correct_batch))
@@ -114,11 +117,11 @@ def train(model, train_dataloader, criterion, optimizer, e = 5):
     #torch.save(model.state_dict(), filename_pth)
     #print(tot_acc)
     return training_loss, acc
-def run():
-    torch.multiprocessing.freeze_support()
+# def run():
+#     torch.multiprocessing.freeze_support()
 
 if __name__ == '__main__':
-    run()
+    #run()
     epochs = 5
     epoch_number = 0
     convolutional_network.train()
