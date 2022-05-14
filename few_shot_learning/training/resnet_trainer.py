@@ -81,7 +81,6 @@ convolutional_network = models.resnet18(pretrained=False)
 convolutional_network.fc = nn.Flatten()
 
 
-
 for param in convolutional_network.parameters():
     param.requires_grad = True
 def train(model, train_dataloader, criterion, optimizer, e = 5):
