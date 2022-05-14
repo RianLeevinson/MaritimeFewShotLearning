@@ -8,26 +8,26 @@ from PIL import Image
 from torch import optim
 from tqdm import tqdm
 import torch.optim.lr_scheduler
-import os 
 import matplotlib.pyplot as plt
 #from torch.utils.tensorboard import SummaryWriter
 from datetime import datetime
 from omegaconf import OmegaConf
 #from maritime_dataset import MaritimeDataset
 
-configs = OmegaConf.load('few_shot_learning/utils/config.yaml')
+import wandb
 
+USE_WANDB = False
 
 timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-os.environ["CUDA_VISIBLE_DEVICES"]=""
+#os.environ["CUDA_VISIBLE_DEVICES"]=""
 
 object_classes = ['buoys', 'ships']
 num_classes = len(object_classes)
 print(num_classes)
 
 batch_size = 32
-#Define image size
-image_size = 8
+#Define image size (Resnet image size is 224 x 224 x 3)
+image_size = 224
 
 # Directory of the data
 data_dir = "data/raw/updated_ds/"
@@ -84,6 +84,7 @@ device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 convolutional_network = models.resnet18(pretrained=False)
 convolutional_network.fc = nn.Flatten()
 
+convolutional_network.to(device)
 
 for param in convolutional_network.parameters():
     param.requires_grad = True
@@ -122,6 +123,15 @@ def train(model, train_dataloader, criterion, optimizer, e = 5):
 
 if __name__ == '__main__':
     #run()
+    if USE_WANDB:
+        wandb.init(project="MaritimeObjectClassification", entity="rian_leevinson")
+        configs = OmegaConf.load('few_shot_learning/utils/config.yaml')
+
+        wandb.config = {
+        "learning_rate": 0.001,
+        "epochs": 5,
+        "batch_size": 32
+        }
     epochs = 5
     epoch_number = 0
     convolutional_network.train()
@@ -139,6 +149,7 @@ if __name__ == '__main__':
         running_vloss = 0.0
         for i, vdata in enumerate(validation_dataloader):
             vinputs, vlabels = vdata
+            vinputs, vlabels = vinputs.to(device), vlabels.to(device)
             voutputs = convolutional_network(vinputs)
             vloss = criterion(voutputs, vlabels)
             running_vloss += vloss
@@ -150,6 +161,11 @@ if __name__ == '__main__':
         acf_vacc = float("{:.4f}".format(100. * correct_batch))
         print('LOSS train {} valid {}'.format(avg_loss, avg_vloss))
         print('ACCURACY train {} valid {}'.format(avg_acc, acf_vacc))
+        if USE_WANDB:
+            wandb.log({"training accuracy": avg_acc})
+            wandb.log({"validation accuracy": acf_vacc})
+            wandb.log({"training loss": avg_loss})
+            wandb.log({"validation loss": avg_vloss})
 
     # Log the running loss averaged per batch
     # for both training and validation
@@ -162,3 +178,5 @@ if __name__ == '__main__':
             model_path = 'models/model_resnet18_fsl_2_class_4.pth'
             torch.save(convolutional_network.state_dict(), model_path)
         epoch_number += 1
+
+    #wandb.watch(convolutional_network)

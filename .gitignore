@@ -83,3 +83,5 @@ target/
 data/
 
 runs/
+
+wandb/
