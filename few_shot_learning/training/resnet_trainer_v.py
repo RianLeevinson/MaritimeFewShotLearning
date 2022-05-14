@@ -48,14 +48,14 @@ def prog_run():
     num_classes = len(object_classes)
     print(num_classes)
 
-    batch_size = 64
+    batch_size = 32
     #Define image size (Resnet image size is 224 x 224 x 3)
     image_size = 224
 
     # Directory of the data
     data_dir = "data/raw/2_class_resnet/"
     plot_dir = "few_shot_learning/visualization/"
-    model_store_path = 'models/model_partial_resnet18_fsl_2_class_cuda_v2.pth'
+    model_store_path = 'models/model_partial_wide_resnet18_fsl_2_class_cuda_v1.pth'
     #dataset mean and standard deviation
 
     data_mean = [0.4609, 0.4467, 0.4413]
@@ -85,13 +85,15 @@ def prog_run():
 
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
-    convolutional_network = models.resnet18(pretrained=True)
+    convolutional_network = models.wide_resnet50_2(pretrained=True)
     convolutional_network.fc = nn.Flatten()
 
     convolutional_network.to(device)
 
     #for param in convolutional_network.parameters():
     #    param.requires_grad = True
+    # for name, child in convolutional_network.named_children():
+    #     print(name)
     for name, child in convolutional_network.named_children():
         if name in ['layer3', 'layer4']:
             print(name + ' is unfrozen')
@@ -144,7 +146,7 @@ def prog_run():
         "epochs": 5,
         "batch_size": 32
         }
-    epochs = 10
+    epochs = 5
     epoch_number = 0
     
     #optimizer = optim.Adam(convolutional_network.parameters(), lr=0.001)
@@ -221,6 +223,7 @@ def prog_run():
         plt.plot(val,label="val")
         plt.xlabel("iterations")
         plt.ylabel(Metric)
+        plt.yscale('log')
         plt.legend()
     perf_plot('Loss', total_train_loss, total_val_loss)
     plt.savefig(plot_dir+'resnet_train_val_loss.png')

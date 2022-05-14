@@ -3,7 +3,7 @@ import torch
 from torch import nn
 from torch.utils.data import DataLoader
 from torchvision import datasets, transforms
-from torchvision.models import resnet18, resnet50
+from torchvision.models import resnet18, wide_resnet50_2
 from tqdm import tqdm
 import numpy as np
 from easyfsl.data_tools import TaskSampler
@@ -95,8 +95,8 @@ class PrototypicalNetworkModel(nn.Module):
 
 def select_model(mode):
     if mode == 1:
-        filename_pth = 'models/model_partial_resnet18_fsl_2_class_cuda_v2.pth'
-        convolutional_network = resnet18(pretrained=False)
+        filename_pth = 'models/model_partial_wide_resnet18_fsl_2_class_cuda_v1.pth'
+        convolutional_network = wide_resnet50_2(pretrained=False)
         convolutional_network.fc = nn.Flatten()
         convolutional_network.load_state_dict(torch.load(filename_pth))
     else:
