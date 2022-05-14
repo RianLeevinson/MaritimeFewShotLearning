@@ -135,17 +135,17 @@ def prog_run():
         }
     epochs = 10
     epoch_number = 0
-    convolutional_network.train()
+    
     optimizer = optim.Adam(convolutional_network.parameters(), lr=0.001)
-    criterion = nn.BCELoss()    
+    criterion = nn.CrossEntropyLoss()    
     # train(convolutional_network,train_dataloader,criterion, optimizer, epochs) 
     #writer = SummaryWriter('runs/fsl_resnet_{}'.format(timestamp))
     best_vloss = 1_000_000.
     for e in range(epochs):
-
+        convolutional_network.train(True)
         avg_loss, avg_acc  = train(convolutional_network,train_dataloader,criterion, optimizer, e) 
 
-        convolutional_network.train(False)
+        convolutional_network.eval()
         with torch.no_grad():
             running_vloss = 0.0
             for i, vdata in enumerate(validation_dataloader):
@@ -176,7 +176,7 @@ def prog_run():
             # writer.flush()
             if avg_vloss < best_vloss:
                 best_vloss = avg_vloss
-                model_path = 'models/model_resnet18_fsl_2_class_4.pth'
+                model_path = 'models/model_resnet18_fsl_2_class_cuda_1.pth'
                 torch.save(convolutional_network.state_dict(), model_path)
             epoch_number += 1
 
