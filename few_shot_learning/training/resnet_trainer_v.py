@@ -55,7 +55,7 @@ def prog_run():
     # Directory of the data
     data_dir = "data/raw/2_class_resnet/"
     plot_dir = "few_shot_learning/visualization/"
-    model_store_path = 'models/model_partial_wide_resnet18_fsl_2_class_cuda_v1.pth'
+    model_store_path = 'models/model_partial_wide_resnet18_fsl_2_class_cuda_v4.pth'
     #dataset mean and standard deviation
 
     data_mean = [0.4609, 0.4467, 0.4413]
@@ -95,7 +95,7 @@ def prog_run():
     # for name, child in convolutional_network.named_children():
     #     print(name)
     for name, child in convolutional_network.named_children():
-        if name in ['layer3', 'layer4']:
+        if name in ['layer4']:
             print(name + ' is unfrozen')
             for param in child.parameters():
                 param.requires_grad = True
@@ -105,27 +105,36 @@ def prog_run():
                 param.requires_grad = False
     def train(model, train_dataloader, criterion, optimizer, e = 5):
         running_loss =0
+        acc = []
         with tqdm(train_dataloader, unit="batch") as tepoch:
             for images, labels in tepoch:
+                
                 inputs, labels = images.to(device), labels.to(device)
                 tepoch.set_description(f"Epoch {int(e)+1}")
-
                 optimizer.zero_grad()
                 img = model(inputs)
                 
                 loss = criterion(img, labels)
                 running_loss+=loss.item()
                 loss.backward()
+
                 optimizer.step()
                 scheduler.step()
+
                 predictions = img.argmax(dim=1, keepdim=True).squeeze()
-                correct_preds = (predictions == labels).float().sum()
+                correct_preds = (predictions.int() == labels.int()).float()
+                acc.append(correct_preds)
+                accuracy = torch.cat(acc, dim=0).mean().cpu()
+                
                 correct_batch = correct_preds/batch_size
-                acc =float("{:.4f}".format(100. * correct_batch))
-                tepoch.set_postfix(loss=loss.item(), accuracy=float("{:.4f}".format(100. * correct_batch)))
+                #acc =float("{:.4f}".format(100. * correct_batch))
+
+                tepoch.set_postfix(loss=loss.item(), accuracy= float("{:.4f}".format(100 * accuracy)))
             #print("Epoch : {}/{}..".format(e+1,epochs),
             #"Training Loss: {:.6f}".format(running_loss/len(train_dataloader))) 
         training_loss = running_loss/len(train_dataloader)
+        accuracy = torch.cat(acc, dim=0).mean().cpu()
+        print('accuracy:', accuracy)
             #train_loss.append(running_loss)
         #plt.plot(train_loss,label="Training Loss")
         #plt.show() 
@@ -133,7 +142,7 @@ def prog_run():
         #filename_pth = 'models/model_resnet18_fsl_2_class_2.pth'
         #torch.save(model.state_dict(), filename_pth)
         #print(tot_acc)
-        return training_loss, acc
+        return training_loss, accuracy
     # def run():
     #     torch.multiprocessing.freeze_support()
 
@@ -172,7 +181,7 @@ def prog_run():
     for e in range(epochs):
         convolutional_network.train(True)
         avg_loss, avg_acc  = train(convolutional_network,train_dataloader,criterion, optimizer, e) 
-        
+        val_acc_total = []
         convolutional_network.eval()
         with torch.no_grad():
             running_vloss = 0.0
@@ -183,11 +192,12 @@ def prog_run():
                     vloss = criterion(voutputs, labels)
                     running_vloss += vloss.item()
                     predictions = voutputs.argmax(dim=1, keepdim=True).squeeze()
-                    correct_preds = (predictions == labels).float().sum()
+                    correct_preds = (predictions.int() == labels.int()).float()
+                    val_acc_total.append(correct_preds)
                     correct_batch = correct_preds/batch_size
-
+        accuracy = torch.cat(val_acc_total, dim=0).mean().cpu()
         avg_vloss = running_vloss / len(validation_dataloader)
-        avg_vacc = float("{:.4f}".format(100. * correct_batch))
+        avg_vacc = float("{:.4f}".format(100. * accuracy))
         print('LOSS train {} valid {}'.format(avg_loss, avg_vloss))
         print('ACCURACY train {} valid {}'.format(avg_acc, avg_vacc))
 

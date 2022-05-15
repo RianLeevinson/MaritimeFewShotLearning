@@ -95,7 +95,7 @@ class PrototypicalNetworkModel(nn.Module):
 
 def select_model(mode):
     if mode == 1:
-        filename_pth = 'models/model_partial_wide_resnet18_fsl_2_class_cuda_v1.pth'
+        filename_pth = 'models/model_partial_wide_resnet18_fsl_2_class_cuda_v4.pth'
         convolutional_network = wide_resnet50_2(pretrained=False)
         convolutional_network.fc = nn.Flatten()
         convolutional_network.load_state_dict(torch.load(filename_pth))
@@ -108,7 +108,8 @@ def select_model(mode):
 # 2 - Pretrained ResNet18 
 convolutional_network = select_model(1)
 model = PrototypicalNetworkModel(convolutional_network)
-
+device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+model.to(device)
 #Selecting the fsl parameters
 
 classes = os.listdir(dir)
@@ -190,7 +191,7 @@ def evaluate(data_loader: DataLoader):
     pred_list = []
     with torch.no_grad():
         for episode_index, (support_images,support_labels,query_images,query_labels,class_ids,) in tqdm(enumerate(data_loader), total=len(data_loader)):
-            correct, total, predicted_classes, exact_classes = evaluate_on_one_task(support_images, support_labels, query_images, query_labels)
+            correct, total, predicted_classes, exact_classes = evaluate_on_one_task(support_images.to(device), support_labels.to(device), query_images.to(device), query_labels.to(device))
             exact.extend(exact_classes)
             predicted.extend(predicted_classes)
             pred_list.append(correct)
