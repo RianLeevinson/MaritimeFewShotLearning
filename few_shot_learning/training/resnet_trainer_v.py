@@ -48,14 +48,14 @@ def prog_run():
     num_classes = len(object_classes)
     print(num_classes)
 
-    batch_size = 32
+    batch_size = 64
     #Define image size (Resnet image size is 224 x 224 x 3)
     image_size = 224
 
     # Directory of the data
     data_dir = "data/raw/2_class_resnet/"
     plot_dir = "few_shot_learning/visualization/"
-    model_store_path = 'models/model_partial_wide_resnet18_fsl_2_class_cuda_v4.pth'
+    model_store_path = 'models/model_partial_resnet18_fsl_2_class_cuda_100_v1.pth'
     #dataset mean and standard deviation
 
     data_mean = [0.4609, 0.4467, 0.4413]
@@ -85,7 +85,7 @@ def prog_run():
 
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
-    convolutional_network = models.wide_resnet50_2(pretrained=True)
+    convolutional_network = models.resnet18(pretrained=True)
     convolutional_network.fc = nn.Flatten()
 
     convolutional_network.to(device)
@@ -129,12 +129,12 @@ def prog_run():
                 correct_batch = correct_preds/batch_size
                 #acc =float("{:.4f}".format(100. * correct_batch))
 
-                tepoch.set_postfix(loss=loss.item(), accuracy= float("{:.4f}".format(100 * accuracy)))
+                tepoch.set_postfix(loss=loss.item(), accuracy= float("{:.4f}".format(100.0 * accuracy)))
             #print("Epoch : {}/{}..".format(e+1,epochs),
             #"Training Loss: {:.6f}".format(running_loss/len(train_dataloader))) 
         training_loss = running_loss/len(train_dataloader)
         accuracy = torch.cat(acc, dim=0).mean().cpu()
-        print('accuracy:', accuracy)
+        print('accuracy:', float("{:.4f}".format(100 * accuracy)))
             #train_loss.append(running_loss)
         #plt.plot(train_loss,label="Training Loss")
         #plt.show() 
@@ -142,7 +142,7 @@ def prog_run():
         #filename_pth = 'models/model_resnet18_fsl_2_class_2.pth'
         #torch.save(model.state_dict(), filename_pth)
         #print(tot_acc)
-        return training_loss, accuracy
+        return training_loss, accuracy*100
     # def run():
     #     torch.multiprocessing.freeze_support()
 
@@ -155,7 +155,7 @@ def prog_run():
         "epochs": 5,
         "batch_size": 32
         }
-    epochs = 5
+    epochs = 2
     epoch_number = 0
     
     #optimizer = optim.Adam(convolutional_network.parameters(), lr=0.001)
@@ -198,8 +198,8 @@ def prog_run():
         accuracy = torch.cat(val_acc_total, dim=0).mean().cpu()
         avg_vloss = running_vloss / len(validation_dataloader)
         avg_vacc = float("{:.4f}".format(100. * accuracy))
-        print('LOSS train {} valid {}'.format(avg_loss, avg_vloss))
-        print('ACCURACY train {} valid {}'.format(avg_acc, avg_vacc))
+        print('Training loss {} validation loss {}'.format(avg_loss, avg_vloss))
+        print('Train accuracy {} validation accuracy {}'.format(avg_acc, avg_vacc))
 
         
         if USE_WANDB:
@@ -215,6 +215,8 @@ def prog_run():
             #             epoch_number + 1)
             # writer.flush()
         if avg_vloss < best_vloss:
+            print(f'{avg_vloss} < {best_vloss}')
+            print('saving model')
             best_vloss = avg_vloss
             model_path = model_store_path
             torch.save(convolutional_network.state_dict(), model_path)
