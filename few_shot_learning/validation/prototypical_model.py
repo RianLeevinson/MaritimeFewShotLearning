@@ -19,20 +19,9 @@ import torchvision
 
 
 
-image_size = 256  #setting the image size
+image_size = 224  #setting the image size
 
 #Loading the data
-
-# def padder_function(img):
-#     padding1_mult = math.floor(img.shape[3] / 32) + 1
-#     padding2_mult = math.floor(img.shape[4] / 32) + 1
-#     pad1 = (32 * padding1_mult) - img.shape[3]
-#     pad2 = (32 * padding2_mult) - img.shape[4] 
-
-#     padding = nn.ReplicationPad2d((0, pad2, pad1, 0, 0 ,0))
-
-#     img = padding(img)
-#     return img
 
 old_data_dir = r"few_shot_learning\data\updated_data_fsl"
 
@@ -51,6 +40,7 @@ fsl_dataset = datasets.ImageFolder(root = dir, transform = transforms.Compose(
         [
             transforms.Resize(image_size),
             transforms.CenterCrop(image_size),
+            transforms.RandomHorizontalFlip(),
             transforms.ToTensor(),
         ]
     ),)
@@ -79,15 +69,34 @@ class PrototypicalNetworkModel(nn.Module):
 
         z_proto = torch.cat(
             [
-                z_support[torch.nonzero(support_labels == label)].mean(0)
+                z_support[torch.nonzero(support_labels == label)].median(dim = 0)[0]
+                
                 for label in range(n_way)
             ]
         )
 
+        z_proto2 = torch.cat(
+            [
+                z_support[torch.nonzero(support_labels == label)].mean(dim = 0)
+                
+                for label in range(n_way)
+            ]
+        )
+
+        z_total = torch.div(torch.add(z_proto, z_proto2), 2)
         #Eucledian distance metric
+        pdist = nn.PairwiseDistance(p=2)
+        def pairwise(z_query, z_proto):
 
-        dists = torch.cdist(z_query, z_proto)
-
+            d1 = []
+            for j in range(0, len(z_query)):
+                d2 = []
+                for i in range(0,len(z_proto)):
+                    d2.append(pdist(z_query[j], z_proto[i]))
+                d1.append(d2)
+            return(torch.FloatTensor(d1).to(device))
+        #dists = torch.cdist(z_query, z_total)
+        dists = pairwise(z_query, z_total)
         scores = -dists
         return scores
 
@@ -95,8 +104,8 @@ class PrototypicalNetworkModel(nn.Module):
 
 def select_model(mode):
     if mode == 1:
-        filename_pth = 'models/model_partial_wide_resnet18_fsl_2_class_cuda_v4.pth'
-        convolutional_network = wide_resnet50_2(pretrained=False)
+        filename_pth = 'models/model_partial_resnet18_fsl_2_class_cuda_100_v1.pth'
+        convolutional_network = resnet18(pretrained=False)
         convolutional_network.fc = nn.Flatten()
         convolutional_network.load_state_dict(torch.load(filename_pth))
     else:

@@ -48,7 +48,7 @@ def prog_run():
     num_classes = len(object_classes)
     print(num_classes)
 
-    batch_size = 64
+    batch_size = 32
     #Define image size (Resnet image size is 224 x 224 x 3)
     image_size = 224
 
@@ -155,7 +155,7 @@ def prog_run():
         "epochs": 5,
         "batch_size": 32
         }
-    epochs = 2
+    epochs = 100
     epoch_number = 0
     
     #optimizer = optim.Adam(convolutional_network.parameters(), lr=0.001)
