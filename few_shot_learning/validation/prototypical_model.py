@@ -25,16 +25,16 @@ image_size = 224  #setting the image size
 
 old_data_dir = r"few_shot_learning\data\updated_data_fsl"
 
-new_data_dir = r"data\processed\fsl_data_7"
+new_data_dir = r"data\processed\fsl_data_6"
 
-
+custom_data_dir = r"data\processed\fsl_data_6_custom"
 
 data_conf = OmegaConf.load(r'few_shot_learning\utils\config.yaml')
 
 n_shot = data_conf.TEST_CONFIG
 
  
-dir = new_data_dir
+dir = custom_data_dir
 
 fsl_dataset = datasets.ImageFolder(root = dir, transform = transforms.Compose(
         [
@@ -85,9 +85,9 @@ class PrototypicalNetworkModel(nn.Module):
 
         z_total = torch.div(torch.add(z_proto, z_proto2), 2)
         #Eucledian distance metric
-        pdist = nn.PairwiseDistance(p=2)
+        
         def pairwise(z_query, z_proto):
-
+            pdist = nn.PairwiseDistance(p=2)
             d1 = []
             for j in range(0, len(z_query)):
                 d2 = []
@@ -95,9 +95,24 @@ class PrototypicalNetworkModel(nn.Module):
                     d2.append(pdist(z_query[j], z_proto[i]))
                 d1.append(d2)
             return(torch.FloatTensor(d1).to(device))
+
+        def cosinesimilarity(z_query, z_proto):
+            cos1 = nn.CosineSimilarity(dim=0, eps=1e-6)
+            d1 = []
+            for j in range(0, len(z_query)):
+                d2 = []
+                for i in range(0,len(z_proto)):
+                    d2.append(cos1(z_query[j], z_proto[i]))
+                d1.append(d2)
+            return(torch.FloatTensor(d1).to(device))
         #dists = torch.cdist(z_query, z_total)
-        dists = pairwise(z_query, z_total)
+        #dists = pairwise(z_query, z_total)
+        #dists = torch.cdist(z_query, z_total)
+
+        
+        dists = cosinesimilarity(z_query, z_total)
         scores = -dists
+        
         return scores
 
 #loading custom trained model
@@ -115,7 +130,7 @@ def select_model(mode):
 
 # 1 - Custom trained ResNet18
 # 2 - Pretrained ResNet18 
-convolutional_network = select_model(1)
+convolutional_network = select_model(2)
 model = PrototypicalNetworkModel(convolutional_network)
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 model.to(device)
