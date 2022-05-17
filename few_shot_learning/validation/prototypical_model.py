@@ -33,7 +33,7 @@ def reproducability_config(random_seed :  int = 0) -> None:
     torch.backends.cudnn.deterministic = True
     torch.backends.cudnn.benchmark = False
 
-reproducability_config(seed_value)
+
 
 def seed_worker():
     '''Preserving reproducability in dataloaders'''
@@ -41,35 +41,6 @@ def seed_worker():
     worker_seed = torch.initial_seed() % 2**32
     np.random.seed(worker_seed)
     random.seed(worker_seed)
-
-g = torch.Generator()
-g.manual_seed(seed_value)
-
-image_size = 224  #setting the image size
-
-#Loading the data
-
-old_data_dir = r"few_shot_learning\data\updated_data_fsl"
-
-new_data_dir = r"data\processed\fsl_data_6"
-
-custom_data_dir = r"data\processed\fsl_data_6_custom"
-
-data_conf = OmegaConf.load(r'few_shot_learning\utils\config.yaml')
-
-n_shot = data_conf.TEST_CONFIG
-
- 
-dir = custom_data_dir
-
-fsl_dataset = datasets.ImageFolder(root = dir, transform = transforms.Compose(
-        [
-            transforms.Resize(image_size),
-            transforms.CenterCrop(image_size),
-            transforms.RandomHorizontalFlip(),
-            transforms.ToTensor(),
-        ]
-    ),)
 
 
 class PrototypicalNetworkModel(nn.Module):
@@ -150,7 +121,6 @@ class PrototypicalNetworkModel(nn.Module):
         
         return scores
 
-#loading custom trained model
 
 def select_model(mode):
     if mode == 1:
@@ -162,55 +132,6 @@ def select_model(mode):
         convolutional_network = resnet18(pretrained=True)
         convolutional_network.fc = nn.Flatten()
     return convolutional_network
-
-# 1 - Custom trained ResNet18
-# 2 - Pretrained ResNet18 
-convolutional_network = select_model(2)
-model = PrototypicalNetworkModel(convolutional_network)
-device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-model.to(device)
-#Selecting the fsl parameters
-
-classes = os.listdir(dir)
-
-
-N_WAY = len(classes) # Number of classes
-N_SHOT = 5 # Number of images per class
-N_QUERY = 5 # Number of images per class in the query set
-N_EVALUATION_TASKS = 50
-
-#Setting the seed value to 0 to enable reproducability of results
-
-
-
-fsl_dataset.labels = fsl_dataset.targets
-test_sampler = TaskSampler(
-    fsl_dataset, n_way=N_WAY, n_shot=N_SHOT, n_query=N_QUERY, n_tasks=N_EVALUATION_TASKS
-)
-
-
-test_loader = DataLoader(
-    fsl_dataset,
-    batch_sampler=test_sampler,
-    #num_workers=1,
-    pin_memory=True,
-   worker_init_fn= seed_worker,
-    collate_fn=test_sampler.episodic_collate_fn,
-)
-
-
-(
-    example_support_images,
-    example_support_labels,
-    example_query_images,
-    example_query_labels,
-    example_class_ids,
-) = next(iter(test_loader))
-model_PATH = r'C:\DTU\master_thesis\fsl\Object-classification-with-few-shot-learning\models'
-torch.save(model.state_dict(), os.path.join(model_PATH,'fsl_model.pth'))
-# model.eval()
-# example_scores = model(example_support_images, example_support_labels, example_query_images)
-# _, example_predicted_labels = torch.max(example_scores.data, 1)
 
 
 def evaluate_on_one_task(
@@ -227,7 +148,6 @@ def evaluate_on_one_task(
     return (torch.max(model(support_images, support_labels, query_images).data, 1,)[1]
         == query_labels).sum().item(), len(query_labels) , class_inf, query_labels.tolist()
 
-#Evaluate the model
 
 def evaluate(data_loader: DataLoader):
     """
@@ -238,7 +158,6 @@ def evaluate(data_loader: DataLoader):
     correct_predictions = 0
     exact = []
     predicted = []
-
 
     model.eval()
     pred_list = []
@@ -258,8 +177,6 @@ def evaluate(data_loader: DataLoader):
 
     return exact, predicted, model_accuracy
 
-exact, predicted, model_accuracy = evaluate(test_loader)
-
 
 def find_classes(dir):
     '''Finds the classes and their corresponding indexing id'''
@@ -269,10 +186,9 @@ def find_classes(dir):
     class_to_idx = {classes[i]: i for i in range(len(classes))}
     return class_to_idx
 
-cf_mat = confusion_matrix(exact, predicted)
 
 def create_cf_plot():
-    '''Creates a confusion matrix of the model predictions '''
+    '''Creates a confusion matrix of the model predictions'''
 
     plt.figure(figsize=(6,6))
     classes_idx = find_classes(dir)
@@ -301,8 +217,6 @@ def create_cf_plot():
 
     return plt
 
-plt = create_cf_plot()
-plt.show()
 
 def create_hist(tensor_mat):
     '''Creates a histogram with all the class accuracies'''
@@ -322,13 +236,16 @@ def create_hist(tensor_mat):
     plt.xlabel('Predicted label')
     return plt
 
-#plt = create_hist(cf_mat)
-#plt.show()
 
 def plot_images():
     '''Plots the support images in all the classes'''
 
-    example_support_images, example_support_labels, example_query_images, example_query_labels, example_class_ids, = next(iter(test_loader))
+    (
+    example_support_images, example_support_labels,
+    example_query_images, example_query_labels,
+    example_class_ids,
+    ) = next(iter(test_loader))
+
     _, ax = plt.subplots()
     plt.title("Support Images")
     #plt.ylabel('Vessel classes')
@@ -346,8 +263,7 @@ def plot_images():
 
     return plt
 
-#plt = plot_images()
-#plt.show()
+
 
 
 # cf_report = pd.DataFrame(
@@ -372,3 +288,90 @@ def plot_images():
 # plt.xlabel('Vessel Classes')
 
 # #plt.show()
+
+
+
+def main():
+
+    reproducability_config(seed_value)
+    g = torch.Generator()
+    g.manual_seed(seed_value)
+
+    image_size = 224  #setting the image size
+
+    #Loading the data
+
+    old_data_dir = r"few_shot_learning\data\updated_data_fsl"
+    new_data_dir = r"data\processed\fsl_data_6"
+    custom_data_dir = r"data\processed\fsl_data_6_custom"
+
+    data_conf = OmegaConf.load(r'few_shot_learning\utils\config.yaml')
+    n_shot = data_conf.TEST_CONFIG
+
+    fsl_dataset = datasets.ImageFolder(root = custom_data_dir, transform = transforms.Compose(
+            [
+                transforms.Resize(image_size),
+                transforms.CenterCrop(image_size),
+                transforms.RandomHorizontalFlip(),
+                transforms.ToTensor(),
+            ]
+        ),)
+    # 1 - Custom trained ResNet18
+    # 2 - Pretrained ResNet18 
+    convolutional_network = select_model(2)
+    model = PrototypicalNetworkModel(convolutional_network)
+    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+    model.to(device)
+
+    classes = os.listdir(dir)
+
+
+    N_WAY = len(classes) # Number of classes
+    N_SHOT = 5 # Number of images per class
+    N_QUERY = 5 # Number of images per class in the query set
+    N_EVALUATION_TASKS = 50
+
+    #Setting the seed value to 0 to enable reproducability of results
+
+
+
+    fsl_dataset.labels = fsl_dataset.targets
+    test_sampler = TaskSampler(
+        fsl_dataset, n_way=N_WAY, n_shot=N_SHOT, n_query=N_QUERY, n_tasks=N_EVALUATION_TASKS
+    )
+
+
+    test_loader = DataLoader(
+        fsl_dataset,
+        batch_sampler=test_sampler,
+        #num_workers=1,
+        pin_memory=True,
+    worker_init_fn= seed_worker,
+        collate_fn=test_sampler.episodic_collate_fn,
+    )
+
+
+    (
+        example_support_images,
+        example_support_labels,
+        example_query_images,
+        example_query_labels,
+        example_class_ids,
+    ) = next(iter(test_loader))
+    model_PATH = r'C:\DTU\master_thesis\fsl\Object-classification-with-few-shot-learning\models'
+    torch.save(model.state_dict(), os.path.join(model_PATH,'fsl_model.pth'))
+    # model.eval()
+    # example_scores = model(example_support_images, example_support_labels, example_query_images)
+    # _, example_predicted_labels = torch.max(example_scores.data, 1)
+
+    exact, predicted, model_accuracy = evaluate(test_loader)
+    cf_mat = confusion_matrix(exact, predicted)
+
+    plt = create_cf_plot()
+    plt.show()
+
+    #plt = create_hist(cf_mat)
+    #plt.show() 
+
+    #plt = plot_images()
+    #plt.show()
