@@ -38,7 +38,7 @@ train_data = datasets.ImageFolder(root = dir, transform = transforms.Compose(
         ]
     ),)
 
-val_data = datasets.ImageFolder(root = dir, transform = transforms.Compose(
+val_data = datasets.ImageFolder(root = val_data_dir, transform = transforms.Compose(
         [
             transforms.Resize(image_size),
             transforms.CenterCrop(image_size),
@@ -56,7 +56,7 @@ N_SHOT = 5 # Number of images per class
 N_QUERY = 5 # Number of images per class in the query set
 N_EVALUATION_TASKS = 50
 
-N_TRAINING_EPISODES = 1000
+N_TRAINING_EPISODES = 5000
 N_VALIDATION_TASKS_2 = 100
 
 #train_dataset.get_labels = lambda: [instance[1] for instance in train_dataset._flat_character_images]
@@ -207,7 +207,7 @@ def select_model(mode):
 
 # 1 - Custom trained ResNet18
 # 2 - Pretrained ResNet18 
-convolutional_network = select_model(2)
+convolutional_network = select_model(1)
 
 model = PrototypicalNetworkModel(convolutional_network)
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
@@ -279,4 +279,49 @@ def evaluate(data_loader: DataLoader):
     return exact, predicted, model_accuracy
 
 
-evaluate(test_loader)
+exact, predicted, model_accuracy = evaluate(test_loader)
+
+print(model_accuracy)
+
+def find_classes(dir):
+    '''Finds the classes and their corresponding indexing id'''
+
+    classes = os.listdir(dir)
+    classes.sort()
+    class_to_idx = {classes[i]: i for i in range(len(classes))}
+    return class_to_idx
+
+cf_mat = confusion_matrix(exact, predicted)
+
+def create_cf_plot():
+    '''Creates a confusion matrix of the model predictions '''
+
+    plt.figure(figsize=(6,6))
+    classes_idx = find_classes(dir)
+
+
+    cf_mat = confusion_matrix(exact, predicted, normalize='true')
+    class_names = list(classes_idx.keys())
+    tick_class_labels = []
+    for vessel_classes in class_names:
+        tick_class_labels.append(vessel_classes.replace('_', ' ').capitalize())
+    df_cm = pd.DataFrame(
+        cf_mat, index=tick_class_labels, columns=tick_class_labels
+    ).astype(float)
+
+    heatmap = sns.heatmap(df_cm, annot=True, cmap="YlGnBu", linewidths=.5, fmt='g')
+
+    heatmap.yaxis.set_ticklabels(
+        heatmap.yaxis.get_ticklabels(), rotation=0, ha='right',fontsize=8
+    )
+    heatmap.xaxis.set_ticklabels(
+        heatmap.xaxis.get_ticklabels(), rotation=0,fontsize=8
+    )
+    plt.title(f'Few Shot Learning \n Image size: {image_size} \n Number of shots: {N_SHOT} \n Number of query images: {N_QUERY} \n Model Accuracy: {model_accuracy} ')
+    plt.ylabel('True label')
+    plt.xlabel('Predicted label')
+
+    return plt
+
+plt = create_cf_plot()
+plt.show()
