@@ -18,12 +18,21 @@ from sklearn.metrics import classification_report
 from omegaconf import OmegaConf
 import torchvision
 
+random_seed = 0
+np.random.seed(random_seed)
+torch.manual_seed(random_seed)
+random.seed(random_seed)
+torch.backends.cudnn.deterministic = True
+torch.backends.cudnn.benchmark = False
+
 image_size = 224
 custom_data_dir = r"data\processed\fsl_data_6_custom"
 
 val_data_dir = r"data\processed\fsl_val_6"
 
 data_conf = OmegaConf.load(r'few_shot_learning\utils\config.yaml')
+
+plot_dir = "few_shot_learning/visualization/"
 
 n_shot = data_conf.TEST_CONFIG
 
@@ -56,7 +65,7 @@ N_SHOT = 5 # Number of images per class
 N_QUERY = 5 # Number of images per class in the query set
 N_EVALUATION_TASKS = 50
 
-N_TRAINING_EPISODES = 5000
+N_TRAINING_EPISODES = 100
 N_VALIDATION_TASKS_2 = 100
 
 #train_dataset.get_labels = lambda: [instance[1] for instance in train_dataset._flat_character_images]
@@ -117,13 +126,15 @@ def fit(
     loss = criterion(classification_scores, query_labels.cuda())
     loss.backward()
     optimizer.step()
+    predictions = classification_scores.argmax(dim=1, keepdim=True).squeeze()
+    correct_preds = (predictions.int() == query_labels.cuda().int()).float()
 
-    return loss.item()
+    return loss.item(), correct_preds
 
 from easyfsl.utils import sliding_average
 log_update_frequency = 10
 
-all_loss = []
+
 
 class PrototypicalNetworkModel(nn.Module):
     def __init__(self, backbone: nn.Module):
@@ -146,7 +157,7 @@ class PrototypicalNetworkModel(nn.Module):
 
         n_way = len(torch.unique(support_labels))
 
-        z_proto = torch.cat(
+        z_proto_median = torch.cat(
             [
                 z_support[torch.nonzero(support_labels == label)].median(dim = 0)[0]
                 
@@ -154,7 +165,7 @@ class PrototypicalNetworkModel(nn.Module):
             ]
         )
 
-        z_proto2 = torch.cat(
+        z_proto_mean = torch.cat(
             [
                 z_support[torch.nonzero(support_labels == label)].mean(dim = 0)
                 
@@ -162,7 +173,7 @@ class PrototypicalNetworkModel(nn.Module):
             ]
         )
 
-        z_total = torch.div(torch.add(z_proto, z_proto2), 2)
+        z_total = torch.div(torch.add(z_proto_median, z_proto_mean), 2)
         #Eucledian distance metric
         
         def pairwise(z_query, z_proto):
@@ -186,7 +197,7 @@ class PrototypicalNetworkModel(nn.Module):
             return(torch.FloatTensor(d1).to(device))
         #dists = torch.cdist(z_query, z_total)
         #dists = pairwise(z_query, z_total)
-        dists = torch.cdist(z_query, z_total)
+        dists = torch.cdist(z_query, z_proto_mean)
 
         
         #dists = cosinesimilarity(z_query, z_total)
@@ -213,12 +224,18 @@ model = PrototypicalNetworkModel(convolutional_network)
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 model.to(device)
 
+for name, child in model.named_children():
+    print(name)
+
 criterion = nn.CrossEntropyLoss()
 optimizer = optim.Adam(model.parameters(), lr=0.001)
 
 for param in model.parameters():
    param.requires_grad = True
 
+acc = []
+all_loss = []
+all_acc = []
 model.train()
 with tqdm(enumerate(train_loader), total=len(train_loader)) as tqdm_train:
     for episode_index, (
@@ -228,13 +245,15 @@ with tqdm(enumerate(train_loader), total=len(train_loader)) as tqdm_train:
         query_labels,
         _,
     ) in tqdm_train:
-        loss_value = fit(support_images, support_labels, query_images, query_labels)
+        loss_value, correct_preds = fit(support_images, support_labels, query_images, query_labels)
         all_loss.append(loss_value)
-
+        acc.append(correct_preds)
+        accuracy = torch.cat(acc, dim=0).mean().cpu()
+        all_acc.append(accuracy)
         if episode_index % log_update_frequency == 0:
-            tqdm_train.set_postfix(loss=sliding_average(all_loss, log_update_frequency))
-
-
+            tqdm_train.set_postfix(loss=sliding_average(all_loss, log_update_frequency), accuracy = float("{:.4f}".format(100.0 * accuracy)))
+accuracy = torch.cat(acc, dim=0).mean().cpu()
+print(accuracy)
 def evaluate_on_one_task(
     support_images: torch.Tensor,
     support_labels: torch.Tensor,
@@ -325,3 +344,19 @@ def create_cf_plot():
 
 plt = create_cf_plot()
 plt.show()
+
+def perf_plot(Metric, value):
+
+    plt.figure(figsize=(10,5))
+    plt.title(f"Training {Metric}")
+    plt.plot(value, label=f"Training {Metric}")
+    #plt.plot(val,label="train accuracy")
+    plt.xlabel("iterations")
+    plt.ylabel(Metric)
+    plt.yscale('log')
+    plt.legend()
+perf_plot('Accuracy', all_acc)
+plt.savefig(plot_dir+'protonet_train_acc.png')
+
+perf_plot('Loss', all_loss)
+plt.savefig(plot_dir+'protonet_train_loss.png')

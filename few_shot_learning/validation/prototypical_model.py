@@ -18,7 +18,12 @@ from sklearn.metrics import classification_report
 from omegaconf import OmegaConf
 import torchvision
 
-
+random_seed = 0
+np.random.seed(random_seed)
+torch.manual_seed(random_seed)
+random.seed(random_seed)
+torch.backends.cudnn.deterministic = True
+torch.backends.cudnn.benchmark = False
 
 image_size = 224  #setting the image size
 
@@ -68,7 +73,7 @@ class PrototypicalNetworkModel(nn.Module):
 
         n_way = len(torch.unique(support_labels))
 
-        z_proto = torch.cat(
+        z_proto_median = torch.cat(
             [
                 z_support[torch.nonzero(support_labels == label)].median(dim = 0)[0]
                 
@@ -76,7 +81,7 @@ class PrototypicalNetworkModel(nn.Module):
             ]
         )
 
-        z_proto2 = torch.cat(
+        z_proto_mean = torch.cat(
             [
                 z_support[torch.nonzero(support_labels == label)].mean(dim = 0)
                 
@@ -84,7 +89,7 @@ class PrototypicalNetworkModel(nn.Module):
             ]
         )
 
-        z_total = torch.div(torch.add(z_proto, z_proto2), 2)
+        z_total = torch.div(torch.add(z_proto_mean, z_proto_median), 2)
         #Eucledian distance metric
         
         def pairwise(z_query, z_proto):
@@ -106,12 +111,10 @@ class PrototypicalNetworkModel(nn.Module):
                     d2.append(cos1(z_query[j], z_proto[i]))
                 d1.append(d2)
             return(torch.FloatTensor(d1).to(device))
-        #dists = torch.cdist(z_query, z_total)
-        #dists = pairwise(z_query, z_total)
-        #dists = torch.cdist(z_query, z_total)
 
-        
-        dists = cosinesimilarity(z_query, z_total)
+        #dists = pairwise(z_query, z_total)
+        dists = torch.cdist(z_query, z_total)
+        #dists = cosinesimilarity(z_query, z_total)
         scores = -dists
         
         return scores
@@ -300,23 +303,21 @@ def create_hist(tensor_mat):
 def plot_images():
     '''Plots the support images in all the classes'''
 
-    example_support_images,
-    example_support_labels,
-    example_query_images,
-    example_query_labels,
-    example_class_ids, = next(iter(test_loader))
+    example_support_images, example_support_labels, example_query_images, example_query_labels, example_class_ids, = next(iter(test_loader))
     _, ax = plt.subplots()
     plt.title("Support Images")
+    #plt.ylabel('Vessel classes')
+    dummy_val = 0
+    classes_list = list(example_support_labels)
+    classes_list2 = classes_list.insert(0,dummy_val)
+    list_classes = list(find_classes(dir).keys())
+    #plt.yticks(np.arange(0, 1.2, step=0.2)) 
+    ax.set_yticks(np.arange(6), list_classes) 
     plt.imshow(
         torchvision.utils.make_grid(
             example_support_images, nrow=N_SHOT
         ).permute(1, 2, 0)
     )
-    plt.ylabel('Vessel classes')
-    dummy_val = 0
-    classes_list = list(example_support_labels)
-    classes_list2 = classes_list.insert(0,dummy_val)
-    ax.set_yticklabels(classes_list2)
 
     return plt
 
@@ -324,25 +325,30 @@ def plot_images():
 #plt.show()
 
 
-cf_report = pd.DataFrame(
-    classification_report(
-        exact, predicted, target_names = list(
-            find_classes(dir).keys()
-        ), output_dict = True
-    )
-)
+# cf_report = pd.DataFrame(
+#     classification_report(
+#         exact, predicted, target_names = list(
+#             find_classes(dir).keys()
+#         ), output_dict = True
+#     )
+# )
 
-cf_report_short = cf_report.drop(
-    ['macro avg', 'weighted avg'], axis = 1
-).drop(['support'], axis = 0)
-report_df = pd.DataFrame(cf_report_short.loc['precision'])
-report_df['recall'] = cf_report_short.loc['recall']
-report_df['f1_score'] = cf_report_short.loc['f1-score']
-report_df['vessel_class'] = report_df.index
-print(report_df)
-x = pd.melt(report_df.drop(['accuracy'], axis = 0), ['vessel_class'])
-sns.lineplot(x='vessel_class', y='value', hue='variable', data=x)
-plt.ylabel('Value')
-plt.xlabel('Vessel Classes')
+# cf_report_short = cf_report.drop(
+#     ['macro avg', 'weighted avg'], axis = 1
+# ).drop(['support'], axis = 0)
+# report_df = pd.DataFrame(cf_report_short.loc['precision'])
+# report_df['recall'] = cf_report_short.loc['recall']
+# report_df['f1_score'] = cf_report_short.loc['f1-score']
+# report_df['vessel_class'] = report_df.index
+# print(report_df)
+# x = pd.melt(report_df.drop(['accuracy'], axis = 0), ['vessel_class'])
+# sns.lineplot(x='vessel_class', y='value', hue='variable', data=x)
+# plt.ylabel('Value')
+# plt.xlabel('Vessel Classes')
 
-plt.show()
+# #plt.show()
+
+
+from sklearn.decomposition import PCA
+from sklearn.manifold import TSNE
+from matplotlib import cm
