@@ -65,7 +65,7 @@ N_SHOT = 5 # Number of images per class
 N_QUERY = 5 # Number of images per class in the query set
 N_EVALUATION_TASKS = 50
 
-N_TRAINING_EPISODES = 100
+N_TRAINING_EPISODES = 1000
 N_VALIDATION_TASKS_2 = 100
 
 #train_dataset.get_labels = lambda: [instance[1] for instance in train_dataset._flat_character_images]
@@ -218,7 +218,7 @@ def select_model(mode):
 
 # 1 - Custom trained ResNet18
 # 2 - Pretrained ResNet18 
-convolutional_network = select_model(1)
+convolutional_network = select_model(2)
 
 model = PrototypicalNetworkModel(convolutional_network)
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
@@ -356,7 +356,7 @@ def perf_plot(Metric, value):
     plt.yscale('log')
     plt.legend()
 perf_plot('Accuracy', all_acc)
-plt.savefig(plot_dir+'protonet_train_acc.png')
+plt.savefig(plot_dir+'pre_protonet_train_acc.png')
 
 perf_plot('Loss', all_loss)
-plt.savefig(plot_dir+'protonet_train_loss.png')
+plt.savefig(plot_dir+'pre_protonet_train_loss.png')

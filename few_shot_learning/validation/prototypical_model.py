@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-from tkinter.filedialog import test
 import torch
 from torch import nn
 from torch.utils.data import DataLoader
@@ -18,12 +17,33 @@ from sklearn.metrics import classification_report
 from omegaconf import OmegaConf
 import torchvision
 
-random_seed = 0
-np.random.seed(random_seed)
-torch.manual_seed(random_seed)
-random.seed(random_seed)
-torch.backends.cudnn.deterministic = True
-torch.backends.cudnn.benchmark = False
+seed_value = 0
+
+def reproducability_config(random_seed :  int = 0) -> None: 
+    '''
+    Improving reproducability of the experiments by configuring determinability. 
+    However, completely reproducible results are not guaranteed
+    even when using identical seeds.
+    https://pytorch.org/docs/stable/notes/randomness.html
+    '''
+
+    np.random.seed(random_seed)
+    torch.manual_seed(random_seed)
+    random.seed(random_seed)
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
+
+reproducability_config(seed_value)
+
+def seed_worker():
+    '''Preserving reproducability in dataloaders'''
+
+    worker_seed = torch.initial_seed() % 2**32
+    np.random.seed(worker_seed)
+    random.seed(worker_seed)
+
+g = torch.Generator()
+g.manual_seed(seed_value)
 
 image_size = 224  #setting the image size
 
@@ -53,7 +73,14 @@ fsl_dataset = datasets.ImageFolder(root = dir, transform = transforms.Compose(
 
 
 class PrototypicalNetworkModel(nn.Module):
+    '''
+    Class for the prototypical network, adapted from 
+    https://github.com/sicara/easy-few-shot-learning
+    '''
+
     def __init__(self, backbone: nn.Module):
+        '''Initializing with backbone model'''
+
         super(PrototypicalNetworkModel, self).__init__()
         self.backbone = backbone
 
@@ -70,13 +97,11 @@ class PrototypicalNetworkModel(nn.Module):
         z_support = self.backbone.forward(support_images)
         z_query = self.backbone.forward(query_images)
 
-
         n_way = len(torch.unique(support_labels))
 
         z_proto_median = torch.cat(
             [
                 z_support[torch.nonzero(support_labels == label)].median(dim = 0)[0]
-                
                 for label in range(n_way)
             ]
         )
@@ -84,7 +109,6 @@ class PrototypicalNetworkModel(nn.Module):
         z_proto_mean = torch.cat(
             [
                 z_support[torch.nonzero(support_labels == label)].mean(dim = 0)
-                
                 for label in range(n_way)
             ]
         )
@@ -93,6 +117,8 @@ class PrototypicalNetworkModel(nn.Module):
         #Eucledian distance metric
         
         def pairwise(z_query, z_proto):
+            '''Calculates the pairwise distance between two torch tensors'''
+
             pdist = nn.PairwiseDistance(p=2)
             d1 = []
             for j in range(0, len(z_query)):
@@ -103,6 +129,11 @@ class PrototypicalNetworkModel(nn.Module):
             return(torch.FloatTensor(d1).to(device))
 
         def cosinesimilarity(z_query, z_proto):
+            '''
+            Calculates the pairwise distance between two torch tensors
+            #NEEDS FIX
+            '''
+
             cos1 = nn.CosineSimilarity(dim=0, eps=1e-6)
             d1 = []
             for j in range(0, len(z_query)):
@@ -150,13 +181,7 @@ N_EVALUATION_TASKS = 50
 
 #Setting the seed value to 0 to enable reproducability of results
 
-def seed_worker():
-    worker_seed = torch.initial_seed() % 2**32
-    np.random.seed(worker_seed)
-    random.seed(worker_seed)
 
-g = torch.Generator()
-g.manual_seed(0)
 
 fsl_dataset.labels = fsl_dataset.targets
 test_sampler = TaskSampler(
@@ -169,7 +194,7 @@ test_loader = DataLoader(
     batch_sampler=test_sampler,
     #num_workers=1,
     pin_memory=True,
-    worker_init_fn= seed_worker,
+   worker_init_fn= seed_worker,
     collate_fn=test_sampler.episodic_collate_fn,
 )
 
@@ -347,8 +372,3 @@ def plot_images():
 # plt.xlabel('Vessel Classes')
 
 # #plt.show()
-
-
-from sklearn.decomposition import PCA
-from sklearn.manifold import TSNE
-from matplotlib import cm
