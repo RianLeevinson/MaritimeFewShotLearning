@@ -1,21 +1,23 @@
 #!/usr/bin/env python3
+
+import os
+import random
+
+from easyfsl.data_tools import TaskSampler
+import matplotlib.pyplot as plt
+import numpy as np
+from omegaconf import OmegaConf
+import pandas as pd
+import seaborn as sns
+from sklearn.metrics import confusion_matrix
 import torch
 from torch import nn
 from torch.utils.data import DataLoader
-from torchvision import datasets, transforms
-from torchvision.models import resnet18, wide_resnet50_2
-from tqdm import tqdm
-import numpy as np
-from easyfsl.data_tools import TaskSampler
-from sklearn.metrics import confusion_matrix
-import random
-import os
-import pandas as pd
-import seaborn as sns
-import matplotlib.pyplot as plt
-from sklearn.metrics import classification_report
-from omegaconf import OmegaConf
 import torchvision
+from torchvision import datasets, transforms
+from torchvision.models import resnet18
+from tqdm import tqdm
+
 
 seed_value = 0
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
