@@ -1,3 +1,6 @@
-from few_shot_learning.validation import prototypical_model
+from few_shot_learning.validation import prototypical_network
 
-prototypical_model.PrototypicalNetworkModel
+
+if __name__ == "__main__":
+
+    prototypical_network.main()
