@@ -58,36 +58,8 @@ class PrototypicalNetworkModel(nn.Module):
         z_proto_median = compute_protoype_median(z_support, support_labels)
         z_proto_mean = compute_protoype_mean(z_support, support_labels)
 
-        #Eucledian distance metric
-        
-        def pairwise(z_query, z_proto):
-            '''Calculates the pairwise distance between two torch tensors'''
 
-            pdist = nn.PairwiseDistance(p=2)
-            d1 = []
-            for j in range(0, len(z_query)):
-                d2 = []
-                for i in range(0,len(z_proto)):
-                    d2.append(pdist(z_query[j], z_proto[i]))
-                d1.append(d2)
-            return(torch.FloatTensor(d1).to(device))
-
-        def cosinesimilarity(z_query, z_proto):
-            '''
-            Calculates the pairwise distance between two torch tensors
-            #NEEDS FIX
-            '''
-
-            cos1 = nn.CosineSimilarity(dim=0, eps=1e-6)
-            d1 = []
-            for j in range(0, len(z_query)):
-                d2 = []
-                for i in range(0,len(z_proto)):
-                    d2.append(cos1(z_query[j], z_proto[i]))
-                d1.append(d2)
-            return(torch.FloatTensor(d1).to(device))
-
-        #dists = pairwise(z_query, z_proto_mean)
+        #dists = pairwise(z_query, z_proto_mean, device)
         dists = torch.cdist(z_query, z_proto_mean)
         #dists = cosinesimilarity(z_query, z_proto_mean)
         scores = -dists
