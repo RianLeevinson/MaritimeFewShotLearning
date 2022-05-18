@@ -18,10 +18,13 @@ from torchvision.models import resnet18
 from tqdm import tqdm
 
 from few_shot_learning.utils.util_functions import (
+    compute_protoype_mean,
     reproducability_config,
     seed_worker,
     find_classes, 
-    plot_images
+    plot_images,
+    compute_protoype_median,
+    compute_protoype_mean
 )
 
 seed_value = 0
@@ -52,24 +55,9 @@ class PrototypicalNetworkModel(nn.Module):
 
         z_support = self.backbone.forward(support_images)
         z_query = self.backbone.forward(query_images)
+        z_proto_median = compute_protoype_median(z_support, support_labels)
+        z_proto_mean = compute_protoype_mean(z_support, support_labels)
 
-        n_way = len(torch.unique(support_labels))
-
-        z_proto_median = torch.cat(
-            [
-                z_support[torch.nonzero(support_labels == label)].median(dim = 0)[0]
-                for label in range(n_way)
-            ]
-        )
-
-        z_proto_mean = torch.cat(
-            [
-                z_support[torch.nonzero(support_labels == label)].mean(dim = 0)
-                for label in range(n_way)
-            ]
-        )
-
-        z_total = torch.div(torch.add(z_proto_mean, z_proto_median), 2)
         #Eucledian distance metric
         
         def pairwise(z_query, z_proto):
@@ -99,9 +87,9 @@ class PrototypicalNetworkModel(nn.Module):
                 d1.append(d2)
             return(torch.FloatTensor(d1).to(device))
 
-        #dists = pairwise(z_query, z_total)
-        dists = torch.cdist(z_query, z_total)
-        #dists = cosinesimilarity(z_query, z_total)
+        #dists = pairwise(z_query, z_proto_mean)
+        dists = torch.cdist(z_query, z_proto_mean)
+        #dists = cosinesimilarity(z_query, z_proto_mean)
         scores = -dists
         
         return scores

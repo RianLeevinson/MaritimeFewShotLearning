@@ -29,7 +29,7 @@ def seed_worker():
     worker_seed = torch.initial_seed() % 2**32
     np.random.seed(worker_seed)
     random.seed(worker_seed)
-    
+
 
 def find_classes(dir):
     '''Finds the classes and their corresponding indexing id'''
@@ -51,7 +51,6 @@ def plot_images(test_loader: DataLoader, N_SHOT: int):
 
     _, ax = plt.subplots()
     plt.title("Support Images")
-    #plt.ylabel('Vessel classes')
     dummy_val = 0
     classes_list = list(example_support_labels)
     classes_list2 = classes_list.insert(0,dummy_val)
@@ -64,3 +63,23 @@ def plot_images(test_loader: DataLoader, N_SHOT: int):
         ).permute(1, 2, 0)
     )
     return plt
+
+def compute_protoype_mean(z_support, support_labels):
+
+    n_way = len(torch.unique(support_labels))
+    return torch.cat([
+        z_support[
+            torch.nonzero(support_labels == label)
+        ].mean(dim = 0)
+        for label in range(n_way)
+    ])   
+
+def compute_protoype_median(z_support, support_labels):
+
+    n_way = len(torch.unique(support_labels))
+    return torch.cat([
+        z_support[
+            torch.nonzero(support_labels == label)
+        ].median(dim = 0)[0]
+        for label in range(n_way)
+    ])   
