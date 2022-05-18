@@ -11,7 +11,7 @@ from torch import nn
 def reproducability_config(random_seed :  int = 0) -> None: 
     '''
     Improving reproducability of the experiments by configuring determinability. 
-    However, completely reproducible results are not guaranteed
+    However, pytorch does not guarantee completely reproducible results
     even when using identical seeds.
     https://pytorch.org/docs/stable/notes/randomness.html
     '''
@@ -66,6 +66,7 @@ def plot_images(test_loader: DataLoader, N_SHOT: int):
 
 
 def compute_protoype_mean(z_support, support_labels):
+    '''Computes the prototype using mean of the class support images'''
 
     n_way = len(torch.unique(support_labels))
     return torch.cat([
@@ -77,6 +78,7 @@ def compute_protoype_mean(z_support, support_labels):
 
 
 def compute_protoype_median(z_support, support_labels):
+    '''Computes the prototype using median of the class support images'''
 
     n_way = len(torch.unique(support_labels))
     return torch.cat([
