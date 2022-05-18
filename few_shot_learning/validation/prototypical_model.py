@@ -18,6 +18,7 @@ from omegaconf import OmegaConf
 import torchvision
 
 seed_value = 0
+device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 def reproducability_config(random_seed :  int = 0) -> None: 
     '''
@@ -139,6 +140,7 @@ def evaluate_on_one_task(
     support_labels: torch.Tensor,
     query_images: torch.Tensor,
     query_labels: torch.Tensor,
+    model: nn.Module,
 ):
     """
     evaluation function
@@ -149,7 +151,7 @@ def evaluate_on_one_task(
         == query_labels).sum().item(), len(query_labels) , class_inf, query_labels.tolist()
 
 
-def evaluate(data_loader: DataLoader):
+def evaluate(data_loader: DataLoader, model: nn.Module):
     """
     Evaluates the model 
     """   
@@ -187,14 +189,14 @@ def find_classes(dir):
     return class_to_idx
 
 
-def create_cf_plot():
+def create_cf_plot(cf_mat, image_size, N_SHOT, N_QUERY, model_accuracy):
     '''Creates a confusion matrix of the model predictions'''
 
     plt.figure(figsize=(6,6))
     classes_idx = find_classes(dir)
 
 
-    cf_mat = confusion_matrix(exact, predicted, normalize='true')
+    #cf_mat = confusion_matrix(exact, predicted, normalize='true')
     class_names = list(classes_idx.keys())
     tick_class_labels = []
     for vessel_classes in class_names:
@@ -218,26 +220,7 @@ def create_cf_plot():
     return plt
 
 
-def create_hist(tensor_mat):
-    '''Creates a histogram with all the class accuracies'''
-
-    plt.figure(figsize=(12,8))
-    classes_idx = find_classes(dir)
-
-
-    cf_mat = confusion_matrix(exact, predicted)
-    class_names = list(classes_idx.keys())
-    df_cm = pd.DataFrame(
-        tensor_mat, index=class_names, columns=class_names
-    ).astype(int)
-    hist = sns.histplot(df_cm, binwidth=3)
-    plt.title(f'Few Shot Learning \n Image size: {image_size} \n Number of shots: {N_SHOT} \n Number of query images: {N_QUERY} \n Model Accuracy: {model_accuracy} ')
-    plt.ylabel('True label')
-    plt.xlabel('Predicted label')
-    return plt
-
-
-def plot_images():
+def plot_images(test_loader: DataLoader, N_SHOT: int):
     '''Plots the support images in all the classes'''
 
     (
@@ -320,7 +303,7 @@ def main():
     # 2 - Pretrained ResNet18 
     convolutional_network = select_model(2)
     model = PrototypicalNetworkModel(convolutional_network)
-    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+    
     model.to(device)
 
     classes = os.listdir(dir)
@@ -364,14 +347,17 @@ def main():
     # example_scores = model(example_support_images, example_support_labels, example_query_images)
     # _, example_predicted_labels = torch.max(example_scores.data, 1)
 
-    exact, predicted, model_accuracy = evaluate(test_loader)
+    exact, predicted, model_accuracy = evaluate(test_loader, model)
     cf_mat = confusion_matrix(exact, predicted)
 
-    plt = create_cf_plot()
+    plt = create_cf_plot(cf_mat, image_size, N_SHOT, N_QUERY, model_accuracy)
     plt.show()
 
     #plt = create_hist(cf_mat)
     #plt.show() 
 
-    #plt = plot_images()
+    #plt = plot_images(test_loader, N_SHOT)
     #plt.show()
+
+if __name__ == '__main__':
+    main()
