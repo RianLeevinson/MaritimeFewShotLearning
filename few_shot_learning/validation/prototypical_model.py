@@ -165,7 +165,7 @@ def evaluate(data_loader: DataLoader, model: nn.Module):
     pred_list = []
     with torch.no_grad():
         for episode_index, (support_images,support_labels,query_images,query_labels,class_ids,) in tqdm(enumerate(data_loader), total=len(data_loader)):
-            correct, total, predicted_classes, exact_classes = evaluate_on_one_task(support_images.to(device), support_labels.to(device), query_images.to(device), query_labels.to(device))
+            correct, total, predicted_classes, exact_classes = evaluate_on_one_task(support_images.to(device), support_labels.to(device), query_images.to(device), query_labels.to(device), model)
             exact.extend(exact_classes)
             predicted.extend(predicted_classes)
             pred_list.append(correct)
@@ -189,11 +189,11 @@ def find_classes(dir):
     return class_to_idx
 
 
-def create_cf_plot(cf_mat, image_size, N_SHOT, N_QUERY, model_accuracy):
+def create_cf_plot(cf_mat, image_size, N_SHOT, N_QUERY, model_accuracy, data_dir):
     '''Creates a confusion matrix of the model predictions'''
 
     plt.figure(figsize=(6,6))
-    classes_idx = find_classes(dir)
+    classes_idx = find_classes(data_dir)
 
 
     #cf_mat = confusion_matrix(exact, predicted, normalize='true')
@@ -291,6 +291,8 @@ def main():
     data_conf = OmegaConf.load(r'few_shot_learning\utils\config.yaml')
     n_shot = data_conf.TEST_CONFIG
 
+    classes = os.listdir(custom_data_dir)
+
     fsl_dataset = datasets.ImageFolder(root = custom_data_dir, transform = transforms.Compose(
             [
                 transforms.Resize(image_size),
@@ -306,7 +308,7 @@ def main():
     
     model.to(device)
 
-    classes = os.listdir(dir)
+    
 
 
     N_WAY = len(classes) # Number of classes
@@ -350,7 +352,7 @@ def main():
     exact, predicted, model_accuracy = evaluate(test_loader, model)
     cf_mat = confusion_matrix(exact, predicted)
 
-    plt = create_cf_plot(cf_mat, image_size, N_SHOT, N_QUERY, model_accuracy)
+    plt = create_cf_plot(cf_mat, image_size, N_SHOT, N_QUERY, model_accuracy, custom_data_dir)
     plt.show()
 
     #plt = create_hist(cf_mat)
