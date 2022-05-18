@@ -27,6 +27,7 @@ from few_shot_learning.utils.util_functions import (
     compute_protoype_mean
 )
 
+
 seed_value = 0
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
@@ -58,7 +59,6 @@ class PrototypicalNetworkModel(nn.Module):
         z_proto_median = compute_protoype_median(z_support, support_labels)
         z_proto_mean = compute_protoype_mean(z_support, support_labels)
 
-
         #dists = pairwise(z_query, z_proto_mean, device)
         dists = torch.cdist(z_query, z_proto_mean)
         #dists = cosinesimilarity(z_query, z_proto_mean)
@@ -89,7 +89,9 @@ def evaluate_on_one_task(
     """
     evaluation function
     """
-    class_inf = torch.max(model(support_images, support_labels, query_images).data,1,)[1].tolist()
+    class_inf = torch.max(
+        model(support_images, support_labels, query_images).data, 1
+    )[1].tolist()
     return (torch.max(model(support_images, support_labels, query_images).data, 1,)[1]
         == query_labels).sum().item(), len(query_labels) , class_inf, query_labels.tolist()
 
@@ -107,8 +109,21 @@ def evaluate(data_loader: DataLoader, model: nn.Module):
     model.eval()
     pred_list = []
     with torch.no_grad():
-        for episode_index, (support_images,support_labels,query_images,query_labels,class_ids,) in tqdm(enumerate(data_loader), total=len(data_loader)):
-            correct, total, predicted_classes, exact_classes = evaluate_on_one_task(support_images.to(device), support_labels.to(device), query_images.to(device), query_labels.to(device), model)
+        for episode_index, (
+            support_images,support_labels,query_images,query_labels,class_ids,
+        ) in tqdm(enumerate(data_loader), total=len(data_loader)):
+            (
+                correct, total,
+                predicted_classes,
+                exact_classes
+            ) = evaluate_on_one_task(
+                    support_images.to(device), 
+                    support_labels.to(device), 
+                    query_images.to(device),
+                    query_labels.to(device),
+                    model
+                )
+
             exact.extend(exact_classes)
             predicted.extend(predicted_classes)
             pred_list.append(correct)
@@ -117,7 +132,8 @@ def evaluate(data_loader: DataLoader, model: nn.Module):
 
     model_accuracy = (100 * correct_predictions/total_predictions)
     print(
-        f"Model tested on {len(data_loader)} tasks. Accuracy: {(100 * correct_predictions/total_predictions):.2f}%"
+        f'Model tested on {len(data_loader)} tasks.'
+        f'Accuracy: {(100 * correct_predictions/total_predictions):.2f}%'
     )
     return exact, predicted, model_accuracy
 
@@ -135,7 +151,9 @@ def create_cf_plot(cf_mat, image_size, N_SHOT, N_QUERY, model_accuracy, data_dir
         cf_mat, index=tick_class_labels, columns=tick_class_labels
     ).astype(float)
 
-    heatmap = sns.heatmap(df_cm, annot=True, cmap="YlGnBu", linewidths=.5, fmt='g')
+    heatmap = sns.heatmap(
+        df_cm, annot=True, cmap="YlGnBu", linewidths=.5, fmt='g'
+    )
 
     heatmap.yaxis.set_ticklabels(
         heatmap.yaxis.get_ticklabels(), rotation=0, ha='right',fontsize=8
@@ -143,7 +161,13 @@ def create_cf_plot(cf_mat, image_size, N_SHOT, N_QUERY, model_accuracy, data_dir
     heatmap.xaxis.set_ticklabels(
         heatmap.xaxis.get_ticklabels(), rotation=0,fontsize=8
     )
-    plt.title(f'Few Shot Learning \n Image size: {image_size} \n Number of shots: {N_SHOT} \n Number of query images: {N_QUERY} \n Model Accuracy: {model_accuracy} ')
+    plt.title(
+        f'Few Shot Learning \n '
+        f'Image size: {image_size} \n '
+        f'Number of shots: {N_SHOT} \n '
+        f'Number of query images: {N_QUERY} \n '
+        f'Model Accuracy: {model_accuracy} '
+    )
     plt.ylabel('True label')
     plt.xlabel('Predicted label')
     return plt
@@ -173,7 +197,6 @@ def create_cf_plot(cf_mat, image_size, N_SHOT, N_QUERY, model_accuracy, data_dir
 # #plt.show()
 
 
-
 def main():
 
     reproducability_config(seed_value)
@@ -192,14 +215,16 @@ def main():
     n_shot = data_conf.TEST_CONFIG
     classes = os.listdir(custom_data_dir)
 
-    fsl_dataset = datasets.ImageFolder(root = custom_data_dir, transform = transforms.Compose(
+    fsl_dataset = datasets.ImageFolder(
+        root = custom_data_dir, transform = transforms.Compose(
             [
                 transforms.Resize(image_size),
                 transforms.CenterCrop(image_size),
                 transforms.RandomHorizontalFlip(),
                 transforms.ToTensor(),
             ]
-        ),)
+        ),
+    )
     # 1 - Custom trained ResNet18
     # 2 - Pretrained ResNet18 
     convolutional_network = select_model(2)
@@ -211,18 +236,20 @@ def main():
     N_QUERY = 5 # Number of images per class in the query set
     N_EVALUATION_TASKS = 50
 
-    #Setting the seed value to 0 to enable reproducability of results
-
     fsl_dataset.labels = fsl_dataset.targets
     test_sampler = TaskSampler(
-        fsl_dataset, n_way=N_WAY, n_shot=N_SHOT, n_query=N_QUERY, n_tasks=N_EVALUATION_TASKS
+        fsl_dataset, 
+        n_way=N_WAY, 
+        n_shot=N_SHOT, 
+        n_query=N_QUERY, 
+        n_tasks=N_EVALUATION_TASKS
     )
 
     test_loader = DataLoader(
         fsl_dataset,
         batch_sampler=test_sampler,
         pin_memory=True,
-    worker_init_fn= seed_worker,
+        worker_init_fn= seed_worker,
         collate_fn=test_sampler.episodic_collate_fn,
     )
 
@@ -233,10 +260,8 @@ def main():
         example_query_labels,
         example_class_ids,
     ) = next(iter(test_loader))
-    model_PATH = r'C:\DTU\master_thesis\fsl\Object-classification-with-few-shot-learning\models'
-    torch.save(model.state_dict(), os.path.join(model_PATH,'fsl_model.pth'))
-    # example_scores = model(example_support_images, example_support_labels, example_query_images)
-    # _, example_predicted_labels = torch.max(example_scores.data, 1)
+    model_PATH = 'models/'
+    torch.save(model.state_dict(), os.path.join(model_PATH,'fsl_protonet.pth'))
 
     exact, predicted, model_accuracy = evaluate(test_loader, model)
     cf_mat = confusion_matrix(exact, predicted)
