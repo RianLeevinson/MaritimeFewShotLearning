@@ -1,22 +1,22 @@
 #!/usr/bin/env python3
-from tkinter.filedialog import test
+
+import os
+import random
+
+from easyfsl.data_tools import TaskSampler
+import matplotlib.pyplot as plt
+import numpy as np
+from omegaconf import OmegaConf
+import pandas as pd
+import seaborn as sns
+from sklearn.metrics import confusion_matrix
 import torch
 from torch import nn
 from torch.utils.data import DataLoader
 from torchvision import datasets, transforms
-from torchvision.models import resnet18, wide_resnet50_2
+from torchvision.models import resnet18
 from tqdm import tqdm
-import numpy as np
-from easyfsl.data_tools import TaskSampler
-from sklearn.metrics import confusion_matrix
-import random
-import os
-import pandas as pd
-import seaborn as sns
-import matplotlib.pyplot as plt
-from sklearn.metrics import classification_report
-from omegaconf import OmegaConf
-import torchvision
+
 
 random_seed = 0
 np.random.seed(random_seed)
@@ -29,6 +29,8 @@ image_size = 224
 custom_data_dir = r"data\processed\fsl_data_6_custom"
 
 val_data_dir = r"data\processed\fsl_val_6"
+
+new_val_data_dir = r'C:\DTU\master_thesis\MaritimeFewShotLearning\data\processed\new_data_may'
 
 data_conf = OmegaConf.load(r'few_shot_learning\utils\config.yaml')
 
@@ -47,7 +49,7 @@ train_data = datasets.ImageFolder(root = dir, transform = transforms.Compose(
         ]
     ),)
 
-val_data = datasets.ImageFolder(root = val_data_dir, transform = transforms.Compose(
+val_data = datasets.ImageFolder(root = new_val_data_dir, transform = transforms.Compose(
         [
             transforms.Resize(image_size),
             transforms.CenterCrop(image_size),
@@ -61,12 +63,12 @@ classes = os.listdir(dir)
 
 
 N_WAY = len(classes) # Number of classes
-N_SHOT = 5 # Number of images per class
-N_QUERY = 5 # Number of images per class in the query set
-N_EVALUATION_TASKS = 50
+N_SHOT = 2 # Number of images per class
+N_QUERY = 2 # Number of images per class in the query set
+N_EVALUATION_TASKS = 1000
 
 N_TRAINING_EPISODES = 1000
-N_VALIDATION_TASKS_2 = 100
+N_VALIDATION_TASKS_2 = 500
 
 #train_dataset.get_labels = lambda: [instance[1] for instance in train_dataset._flat_character_images]
 #train_dataset.labels = train_dataset.targets
@@ -218,7 +220,7 @@ def select_model(mode):
 
 # 1 - Custom trained ResNet18
 # 2 - Pretrained ResNet18 
-convolutional_network = select_model(2)
+convolutional_network = select_model(1)
 
 model = PrototypicalNetworkModel(convolutional_network)
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")

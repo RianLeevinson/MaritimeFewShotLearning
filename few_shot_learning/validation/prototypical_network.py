@@ -227,7 +227,7 @@ def main():
     )
     # 1 - Custom trained ResNet18
     # 2 - Pretrained ResNet18 
-    convolutional_network = select_model(2)
+    convolutional_network = select_model(1)
     model = PrototypicalNetworkModel(convolutional_network)
     model.to(device)
 
@@ -262,6 +262,7 @@ def main():
     ) = next(iter(test_loader))
     model_PATH = 'models/'
     torch.save(model.state_dict(), os.path.join(model_PATH,'fsl_protonet.pth'))
+
 
     exact, predicted, model_accuracy = evaluate(test_loader, model)
     cf_mat = confusion_matrix(exact, predicted)

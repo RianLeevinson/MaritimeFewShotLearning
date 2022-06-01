@@ -101,6 +101,7 @@ def pairwise(z_query, z_proto, device):
         d1.append(d2)
     return(torch.FloatTensor(d1).to(device))
 
+
 def cosinesimilarity(z_query, z_proto, device):
     '''
     Calculates the pairwise distance between two torch tensors
