@@ -87,3 +87,7 @@ runs/
 wandb/
 
 models/
+
+output/
+
+visualization/

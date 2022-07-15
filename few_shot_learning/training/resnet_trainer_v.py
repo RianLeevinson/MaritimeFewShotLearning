@@ -55,7 +55,7 @@ def prog_run():
     # Directory of the data
     data_dir = "data/raw/2_class_resnet/"
     plot_dir = "few_shot_learning/visualization/"
-    model_store_path = 'models/model_partial_resnet18_fsl_2_class_cuda_100_v1.pth'
+    model_store_path = 'models/model_partial_resnet18_2_class_cuda_25_1407_bicubic_v1.pth'
     #dataset mean and standard deviation
 
     data_mean = [0.4609, 0.4467, 0.4413]
@@ -64,7 +64,7 @@ def prog_run():
 
     complete_dataset = MaritimeDataset(root_dir = data_dir,
                                         transform = transforms.Compose([
-                                            transforms.Resize(image_size),
+                                            transforms.Resize(image_size, interpolation=transforms.functional.InterpolationMode.BICUBIC),
                                             transforms.CenterCrop(image_size),
                                             transforms.RandomHorizontalFlip(),
                                             transforms.ToTensor(),
@@ -146,18 +146,9 @@ def prog_run():
     # def run():
     #     torch.multiprocessing.freeze_support()
 
-    if USE_WANDB:
-        wandb.init(project="MaritimeObjectClassification", entity="rian_leevinson")
-        configs = OmegaConf.load('few_shot_learning/utils/config.yaml')
-
-        wandb.config = {
-        "learning_rate": 0.001,
-        "epochs": 5,
-        "batch_size": 32
-        }
-    epochs = 100
+    epochs = 25
     epoch_number = 0
-    
+    log_frequency = 2
     #optimizer = optim.Adam(convolutional_network.parameters(), lr=0.001)
     optimizer = torch.optim.SGD(
         filter(
@@ -200,26 +191,13 @@ def prog_run():
         avg_vacc = float("{:.4f}".format(100. * accuracy))
         print('Training loss {} validation loss {}'.format(avg_loss, avg_vloss))
         print('Train accuracy {} validation accuracy {}'.format(avg_acc, avg_vacc))
-
-        
-        if USE_WANDB:
-            wandb.log({"training accuracy": avg_acc})
-            wandb.log({"validation accuracy": avg_vacc})
-            wandb.log({"training loss": avg_loss})
-            wandb.log({"validation loss": avg_vloss})
-
-        # Log the running loss averaged per batch
-        # for both training and validation
-            # writer.add_scalars('Training vs. Validation Loss',
-            #                 { 'Training' : avg_loss, 'Validation' : avg_vloss },
-            #             epoch_number + 1)
-            # writer.flush()
-        if avg_vloss < best_vloss:
-            print(f'{avg_vloss} < {best_vloss}')
-            print('saving model')
-            best_vloss = avg_vloss
-            model_path = model_store_path
-            torch.save(convolutional_network.state_dict(), model_path)
+        if e % log_frequency == 0:
+            if avg_vloss < best_vloss:
+                print(f'{avg_vloss} < {best_vloss}')
+                print('saving model')
+                best_vloss = avg_vloss
+                model_path = model_store_path
+                torch.save(convolutional_network.state_dict(), model_path)
         epoch_number += 1
 
         total_train_acc.append(avg_acc)
@@ -238,10 +216,9 @@ def prog_run():
         plt.yscale('log')
         plt.legend()
     perf_plot('Loss', total_train_loss, total_val_loss)
-    plt.savefig(plot_dir+'resnet_train_val_loss.png')
+    plt.savefig(plot_dir+'resnet_train_val_loss2.png')
     perf_plot('Accuracy', total_train_acc, total_val_acc)
-    plt.savefig(plot_dir+'resnet_train_val_accuracy.png')
-    #wandb.watch(convolutional_network)
+    plt.savefig(plot_dir+'resnet_train_val_accuracy2.png')
 
 if __name__ == '__main__':
     prog_run()

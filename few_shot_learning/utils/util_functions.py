@@ -116,3 +116,12 @@ def cosinesimilarity(z_query, z_proto, device):
             d2.append(cos1(z_query[j], z_proto[i]))
         d1.append(d2)
     return(torch.FloatTensor(d1).to(device))
+
+import splitfolders
+
+def split_dataset():
+    splitfolders.fixed("data/processed/data_split/val_set/", output="output",
+    seed=0, fixed=(20), oversample=False, group_prefix=None, move=False)
+    print('data is split')
+
+#split_dataset()

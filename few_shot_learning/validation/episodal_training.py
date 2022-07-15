@@ -17,7 +17,6 @@ from torchvision import datasets, transforms
 from torchvision.models import resnet18
 from tqdm import tqdm
 
-
 random_seed = 0
 np.random.seed(random_seed)
 torch.manual_seed(random_seed)
@@ -26,49 +25,75 @@ torch.backends.cudnn.deterministic = True
 torch.backends.cudnn.benchmark = False
 
 image_size = 224
-custom_data_dir = r"data\processed\fsl_data_6_custom"
-
-val_data_dir = r"data\processed\fsl_val_6"
-
-new_val_data_dir = r'C:\DTU\master_thesis\MaritimeFewShotLearning\data\processed\new_data_may'
+new_val_data_dir = r'C:\DTU\master_thesis\MaritimeFewShotLearning\data\processed\new_data_may\val_set'
 
 data_conf = OmegaConf.load(r'few_shot_learning\utils\config.yaml')
 
-plot_dir = "few_shot_learning/visualization/"
+plot_dir = r"few_shot_learning/visualization/"
 
+#model_store_path = r'models/protonet_episodal_5_shot_resnet18_1307_norm_v1.pth'
+model_store_path_custom_5 = r'models/protonet_episodal_5_shot_resnet18_1407_bicubic_v1.pth'
+model_store_path_pre_resnet_5 = r'models/protonet_5_shot_resnet18_pretrained_1407_v1.pth'
+
+model_store_path_pre_sgd_1 = r'models/protonet_1_shot_resnet18_pretrained_1407_v1.pth'
+model_store_path_pre_resnet_sgd_5 = r'models/protonet_5_shot_resnet18_pretrained_1407_sgd_v2.pth'
+model_store_path_custom_sgd_1 = r'models/protonet_1_shot_resnet18_custom_1407_v1.pth'
+
+model_store_path_custom_sgd_2 = r'models/protonet_2_shot_resnet18_custom_1407_v1.pth'
+model_store_path_custom_adam_2 = r'models/protonet_2_shot_resnet18_custom_1407_adam_v1.pth'
+
+model_store_path_custom_sgd_5 = r'models/protonet_5_shot_resnet18_custom_1407_sgd_v1.pth'
+model_store_path_pre_adam_5 = r'models/protonet_5_shot_resnet18_pretrained_1407_adam_v1.pth'
+
+model_store_path_custom_adam_5 = r'models/protonet_5_shot_resnet18_custom_1407_adam_v1.pth'
+model_store_path_custom_adam_5_v2 = r'models/protonet_5_shot_resnet18_custom_1407_adam_v2.pth'
+model_store_path_custom_adam_5_v3 = r'models/protonet_5_shot_resnet18_custom_1407_adam_v3.pth'
+
+model_store_path_custom_adam_1 = r'models/protonet_1_shot_resnet18_custom_1407_adam_v1.pth'
+model_store_path_pretrained_adam_1 = r'models/protonet_1_shot_resnet18_pretrained_1407_adam_v1.pth'
+
+model_store_path_pretrained_adam_2 = r'models/protonet_2_shot_resnet18_pretrained_1407_adam_v1.pth'
+
+model_store_path_pretrained_adam_5_v5 = r'models/protonet_5_shot_resnet18_pretrained_1407_adam_v5.pth'
+
+model_store_path = model_store_path_pretrained_adam_5_v5
+full_train = r'data\processed\new_data_may\train_set'
 n_shot = data_conf.TEST_CONFIG
 
-dir = custom_data_dir
+lat_train = r"data\processed\lat_train"
+resnet_path = 'models/model_partial_resnet18_2_class_cuda_100_1307_v1.pth'
+resnet_25_path = 'models/model_partial_resnet18_2_class_cuda_25_1407_bicubic_v1.pth'
+lat_val = r"data\processed\lat_val"
+full_train_sub = r'data\processed\new_data_may\train_set_exp'
+dir = full_train_sub
+val_dir = lat_val
+
+data_mean = [0.4609, 0.4467, 0.4413]
+data_std = [0.1314, 0.1239, 0.1198]
 
 train_data = datasets.ImageFolder(root = dir, transform = transforms.Compose(
         [
-            transforms.Resize(image_size),
+            transforms.Resize(size=image_size, interpolation=transforms.functional.InterpolationMode.BICUBIC),
             transforms.CenterCrop(image_size),
             transforms.RandomHorizontalFlip(),
             transforms.ToTensor(),
-        ]
-    ),)
-
-val_data = datasets.ImageFolder(root = new_val_data_dir, transform = transforms.Compose(
-        [
-            transforms.Resize(image_size),
-            transforms.CenterCrop(image_size),
-            transforms.RandomHorizontalFlip(),
-            transforms.ToTensor(),
+            #transforms.Normalize(data_mean, data_std),
         ]
     ),)
 
 
-classes = os.listdir(dir)
+
+train_classes = os.listdir(dir)
 
 
-N_WAY = len(classes) # Number of classes
-N_SHOT = 2 # Number of images per class
-N_QUERY = 2 # Number of images per class in the query set
-N_EVALUATION_TASKS = 1000
+N_WAY_TRAIN = len(train_classes) # Number of classes
+#N_WAY_TEST = len(test_classes) # Number of classes
+N_SHOT = 5 # Number of images per class
+N_QUERY = 5 # Number of images per class in the query set
+N_EVALUATION_TASKS = 500
 
-N_TRAINING_EPISODES = 1000
-N_VALIDATION_TASKS_2 = 500
+N_TRAINING_EPISODES = 500
+#N_VALIDATION_TASKS_2 = 50
 
 #train_dataset.get_labels = lambda: [instance[1] for instance in train_dataset._flat_character_images]
 #train_dataset.labels = train_dataset.targets
@@ -76,13 +101,10 @@ N_VALIDATION_TASKS_2 = 500
 #test_dataset.labels = test_dataset.targets
 train_data.labels = train_data.targets
 train_sampler = TaskSampler(
-    train_data, n_way=N_WAY, n_shot=N_SHOT, n_query=N_QUERY, n_tasks=N_TRAINING_EPISODES
+    train_data, n_way=N_WAY_TRAIN, n_shot=N_SHOT, n_query=N_QUERY, n_tasks=N_TRAINING_EPISODES
 )
 
-val_data.labels = val_data.targets
-test_sampler = TaskSampler(
-    val_data, n_way=N_WAY, n_shot=N_SHOT, n_query=N_QUERY, n_tasks=N_EVALUATION_TASKS
-)
+
 
 def seed_worker():
     worker_seed = torch.initial_seed() % 2**32
@@ -103,14 +125,6 @@ train_loader = DataLoader(
 )
 
 
-test_loader = DataLoader(
-    val_data,
-    batch_sampler=test_sampler,
-    #num_workers=8,
-    pin_memory=True,
-    worker_init_fn= seed_worker,
-    collate_fn=test_sampler.episodic_collate_fn,
-)
 
 from torch import optim
 
@@ -134,7 +148,7 @@ def fit(
     return loss.item(), correct_preds
 
 from easyfsl.utils import sliding_average
-log_update_frequency = 10
+log_update_frequency = 20
 
 
 
@@ -220,7 +234,7 @@ def select_model(mode):
 
 # 1 - Custom trained ResNet18
 # 2 - Pretrained ResNet18 
-convolutional_network = select_model(1)
+convolutional_network = select_model(2)
 
 model = PrototypicalNetworkModel(convolutional_network)
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
@@ -231,10 +245,10 @@ for name, child in model.named_children():
 
 criterion = nn.CrossEntropyLoss()
 optimizer = optim.Adam(model.parameters(), lr=0.001)
-
+#optimizer = optim.SGD(model.parameters(), lr=0.01, momentum=0.9)
 for param in model.parameters():
    param.requires_grad = True
-
+best_vloss = 1_000_000.
 acc = []
 all_loss = []
 all_acc = []
@@ -254,111 +268,42 @@ with tqdm(enumerate(train_loader), total=len(train_loader)) as tqdm_train:
         all_acc.append(accuracy)
         if episode_index % log_update_frequency == 0:
             tqdm_train.set_postfix(loss=sliding_average(all_loss, log_update_frequency), accuracy = float("{:.4f}".format(100.0 * accuracy)))
+            if loss_value < best_vloss:
+                print(f'{loss_value} < {best_vloss}')
+                print('saving model')
+                best_vloss = loss_value
+                model_path = model_store_path
+                torch.save(model.state_dict(), model_path)
 accuracy = torch.cat(acc, dim=0).mean().cpu()
 print(accuracy)
-def evaluate_on_one_task(
-    support_images: torch.Tensor,
-    support_labels: torch.Tensor,
-    query_images: torch.Tensor,
-    query_labels: torch.Tensor,
-):
-    """
-    evaluation function
-    """
-    class_inf = torch.max(model(support_images, support_labels, query_images).data,1,)[1].tolist()
-
-    return (torch.max(model(support_images, support_labels, query_images).data, 1,)[1]
-        == query_labels).sum().item(), len(query_labels) , class_inf, query_labels.tolist()
-
-def evaluate(data_loader: DataLoader):
-    """
-    Evaluates the model 
-    """   
-
-    total_predictions = 0
-    correct_predictions = 0
-    exact = []
-    predicted = []
 
 
-    model.eval()
-    pred_list = []
-    with torch.no_grad():
-        for episode_index, (support_images,support_labels,query_images,query_labels,class_ids,) in tqdm(enumerate(data_loader), total=len(data_loader)):
-            correct, total, predicted_classes, exact_classes = evaluate_on_one_task(support_images.to(device), support_labels.to(device), query_images.to(device), query_labels.to(device))
-            exact.extend(exact_classes)
-            predicted.extend(predicted_classes)
-            pred_list.append(correct)
-            total_predictions += total
-            correct_predictions += correct
 
-    model_accuracy = (100 * correct_predictions/total_predictions)
-    print(
-        f"Model tested on {len(data_loader)} tasks. Accuracy: {(100 * correct_predictions/total_predictions):.2f}%"
-    )
-
-    return exact, predicted, model_accuracy
-
-
-exact, predicted, model_accuracy = evaluate(test_loader)
-
-print(model_accuracy)
-
-def find_classes(dir):
-    '''Finds the classes and their corresponding indexing id'''
-
-    classes = os.listdir(dir)
-    classes.sort()
-    class_to_idx = {classes[i]: i for i in range(len(classes))}
-    return class_to_idx
-
-cf_mat = confusion_matrix(exact, predicted)
-
-def create_cf_plot():
-    '''Creates a confusion matrix of the model predictions '''
-
-    plt.figure(figsize=(6,6))
-    classes_idx = find_classes(dir)
-
-
-    cf_mat = confusion_matrix(exact, predicted, normalize='true')
-    class_names = list(classes_idx.keys())
-    tick_class_labels = []
-    for vessel_classes in class_names:
-        tick_class_labels.append(vessel_classes.replace('_', ' ').capitalize())
-    df_cm = pd.DataFrame(
-        cf_mat, index=tick_class_labels, columns=tick_class_labels
-    ).astype(float)
-
-    heatmap = sns.heatmap(df_cm, annot=True, cmap="YlGnBu", linewidths=.5, fmt='g')
-
-    heatmap.yaxis.set_ticklabels(
-        heatmap.yaxis.get_ticklabels(), rotation=0, ha='right',fontsize=8
-    )
-    heatmap.xaxis.set_ticklabels(
-        heatmap.xaxis.get_ticklabels(), rotation=0,fontsize=8
-    )
-    plt.title(f'Few Shot Learning \n Image size: {image_size} \n Number of shots: {N_SHOT} \n Number of query images: {N_QUERY} \n Model Accuracy: {model_accuracy} ')
-    plt.ylabel('True label')
-    plt.xlabel('Predicted label')
-
-    return plt
-
-plt = create_cf_plot()
-plt.show()
-
-def perf_plot(Metric, value):
+def perf_plot(Metric, train):
 
     plt.figure(figsize=(10,5))
+    ax = plt.subplot(111)
     plt.title(f"Training {Metric}")
-    plt.plot(value, label=f"Training {Metric}")
-    #plt.plot(val,label="train accuracy")
+    plt.plot(train,label="train", color='blue')
     plt.xlabel("iterations")
     plt.ylabel(Metric)
     plt.yscale('log')
     plt.legend()
-perf_plot('Accuracy', all_acc)
-plt.savefig(plot_dir+'pre_protonet_train_acc.png')
+    #ax.grid('on')
+    plt.grid()
+# perf_plot('Loss', all_loss)
+# plt.savefig(plot_dir+'episodic_train_loss_2_pretrained_adam_v1.png')
+# perf_plot('Accuracy', all_acc)
+# plt.savefig(plot_dir+'episodic_train_acc_2_pretrained_adam_v1.png')
 
-perf_plot('Loss', all_loss)
-plt.savefig(plot_dir+'pre_protonet_train_loss.png')
+# import pickle
+
+# with open('accuracy_custom_resnet_2_pretrained_adam_v1', 'wb') as fp:
+#     pickle.dump(all_acc, fp)
+
+# with open('loss_custom_resnet_2_pretrained_adam_v1', 'wb') as fp:
+#     pickle.dump(all_loss, fp)
+
+#with open ('outfile', 'rb') as fp:
+#    itemlist = pickle.load(fp)
+#    print(itemlist)
