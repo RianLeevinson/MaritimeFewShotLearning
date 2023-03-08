@@ -36,7 +36,7 @@ episodal_2shot_path = r'models/protonet_episodal_2_shot_resnet18_1307_v1.pth'
 resnet_path = 'models/model_partial_resnet18_2_class_cuda_100_1307_v1.pth'
 
 pretrained_proto_net_sgd_1 = r'models/protonet_1_shot_resnet18_pretrained_1407_v1.pth'
-
+mini_img = r'models/protonet_episodal_miniimagenet_5_v1.pth'
 proto_dir = r'data\processed\output\train'
 vali_dir = r'data\processed\validate_images'
 
@@ -83,10 +83,10 @@ device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 convolutional_network = resnet18(pretrained=False)
 convolutional_network.fc = nn.Flatten()
-convolutional_network.load_state_dict(torch.load(resnet_path))
+convolutional_network.load_state_dict(torch.load(mini_img))
 model = PrototypicalNetworkModel(convolutional_network)
 model.to(device)
-model.load_state_dict(torch.load(model_PATH))
+model.load_state_dict(torch.load(mini_img))
 model.eval()
 
 def predict_class(img, best_prototypes):

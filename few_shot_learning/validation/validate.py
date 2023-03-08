@@ -43,7 +43,7 @@ train_set = r'data\processed\new_data_may\train_set_exp'
 
 full_val_sub_data_exp = r'data\processed\new_data_may\val_sub_set_exp'
 full_val_sub_data_exp_v2 = r'data\processed\new_data_may\val_set_all' 
-image_size = 224
+image_size = 128
 
 resnet_2_shot_path = 'models/protonet_episodal_2_shot_resnet18_1307_v1.pth'
 episodal_5_shot_path = r'models/protonet_episodal_5_shot_resnet18_1307_norm_v1.pth'
@@ -53,7 +53,7 @@ model_PATH = 'models/protonet_episodal_5_shot_meta_train_v2.pth'
 filename_pth = 'models/model_partial_resnet18_fsl_2_class_cuda_100_v1.pth'
 resnet_pth = 'models/model_partial_resnet18_2_class_cuda_100_1307_v1.pth'
 norm_model = r'models/protonet_episodal_2_shot_resnet18_1307_norm_v1.pth'
-model_store_path = r'models/protonet_episodal_miniimagenet_5_v1.pth'
+model_store_path22 = r'models/protonet_episodal_miniimagenet_5_v1.pth'
 data_dir = r'models/protonet_episodal_2_shot_meta_train_v2.pth'
 proto_dir = r'data\processed\output\train'
 vali_dir = r'data\processed\validate_images'
@@ -87,10 +87,10 @@ model_store_path_pretrained_adam_2 = r'models/protonet_2_shot_resnet18_pretraine
 model_store_path_pretrained_adam_5_v5 = r'models/protonet_5_shot_resnet18_pretrained_1407_adam_v5.pth'
 
 resnet_path = resnet_25_path
-proto_model_PATH = model_store_path_custom_adam_1
+proto_model_PATH = model_store_path22
 
-N_SHOT = 1 # Number of images per class
-N_QUERY = 1 # Number of images per class in the query set
+N_SHOT = 5 # Number of images per class
+N_QUERY = 5 # Number of images per class in the query set
 N_EVALUATION_TASKS = 100
 
 val_dir = full_val_data
@@ -210,9 +210,9 @@ class PrototypicalNetworkModel(nn.Module):
         return scores, mean_prototypes
 
 
-convolutional_network = resnet18(pretrained=False)
+convolutional_network = resnet18(pretrained=True)
 convolutional_network.fc = nn.Flatten()
-convolutional_network.load_state_dict(torch.load(resnet_path))
+#convolutional_network.load_state_dict(torch.load(resnet_path))
 model = PrototypicalNetworkModel(convolutional_network)
 model.to(device)
 model.load_state_dict(torch.load(proto_model_PATH))
@@ -475,6 +475,6 @@ def compute_prototypes(data_loader):
 
 if __name__ == "__main__":
     #best_prototypes = compute_prototypes(test_loader)
-    #torch.save(best_prototypes, 'prototypes_1_shot_1307.pt')
+    #torch.save(best_prototypes, 'prototypes_5_shot_mini.pt')
     pass
 

@@ -56,6 +56,8 @@ model_store_path_pretrained_adam_2 = r'models/protonet_2_shot_resnet18_pretraine
 
 model_store_path_pretrained_adam_5_v5 = r'models/protonet_5_shot_resnet18_pretrained_1407_adam_v5.pth'
 
+model_store_path_2023_v1 = r'models/protonet_5_shot_resnet18_pretrained_adam_2023_v1.pth'
+
 model_store_path = model_store_path_pretrained_adam_5_v5
 full_train = r'data\processed\new_data_may\train_set'
 n_shot = data_conf.TEST_CONFIG
@@ -65,8 +67,14 @@ resnet_path = 'models/model_partial_resnet18_2_class_cuda_100_1307_v1.pth'
 resnet_25_path = 'models/model_partial_resnet18_2_class_cuda_25_1407_bicubic_v1.pth'
 lat_val = r"data\processed\lat_val"
 full_train_sub = r'data\processed\new_data_may\train_set_exp'
-dir = full_train_sub
-val_dir = lat_val
+
+data_2023 = 'C:\DTU\master_thesis\MaritimeFewShotLearning\data\processed\data_2023'
+val_2023 = 'C:\DTU\master_thesis\MaritimeFewShotLearning\data\processed\val_2023'
+
+
+dir = data_2023
+val_dir = val_2023
+
 
 data_mean = [0.4609, 0.4467, 0.4413]
 data_std = [0.1314, 0.1239, 0.1198]

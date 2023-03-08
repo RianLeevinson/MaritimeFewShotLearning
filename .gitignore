@@ -91,3 +91,10 @@ models/
 output/
 
 visualization/
+
+*.pt
+*.png
+
+model_outputs/
+
+outfile
